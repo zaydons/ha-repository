@@ -277,6 +277,11 @@ export class Scheduler implements StateService {
     this.lastViewer = t;
     if (wasIdle && this.applied && !this.stopped) {
       this.log.debug("Viewer active: widget polling on");
+      // Design §4.7: a returning viewer gets a widget round now, even when
+      // widgetInterval is longer than the viewer TTL.
+      for (const entry of this.tiles.values()) {
+        if (entry.widget && !entry.widget.cancelled) entry.widget.nextDue = Math.min(entry.widget.nextDue, t);
+      }
       // The first poll after idle starts a widget round at once.
       this.tick();
     }
@@ -350,7 +355,12 @@ export class Scheduler implements StateService {
     this.applied = true;
     this.settings = cfg.settings;
     this.secrets = cfg.secrets;
+    // Every config event reloads ca.pem, including events where only ca.pem changed.
     this.reloadCa();
+    if (!cfg.settings.tlsVerify || cfg.tiles.some((tl) => tl.widget?.supported && !tl.widget.tlsVerify)) {
+      // Wording is quoted in DOCS.md (log lines); keep them in sync.
+      this.log.info("TLS verification is off for widget/status requests (settings.yaml tlsVerify)");
+    }
 
     const next = new Map<string, TileEntry>();
     let kept = 0;
