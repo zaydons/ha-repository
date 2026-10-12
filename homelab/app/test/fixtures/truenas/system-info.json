@@ -1,0 +1,21 @@
+{
+  "version": "25.04.2.1",
+  "buildtime": { "$date": 1752000000000 },
+  "hostname": "nas-example",
+  "physmem": 34359738368,
+  "model": "Example CPU",
+  "cores": 8,
+  "physical_cores": 4,
+  "loadavg": [0.5341796875, 0.4677734375, 0.40966796875],
+  "uptime": "3 days, 4:05:06.789",
+  "uptime_seconds": 273906.789,
+  "system_serial": null,
+  "system_product": "Example Product",
+  "system_product_version": null,
+  "license": null,
+  "boottime": { "$date": 1759981893000 },
+  "datetime": { "$date": 1760255799000 },
+  "timezone": "UTC",
+  "system_manufacturer": null,
+  "ecc_memory": false
+}
