@@ -1,0 +1,7 @@
+{
+  "libraries": [
+    { "id": "lib_c1u6t4p45c35rf0nzd", "name": "Audiobooks", "mediaType": "book", "displayOrder": 1, "icon": "audiobookshelf", "provider": "audible", "folders": [] },
+    { "id": "6f2a6c1e-0d6b-4f7e-9a1b-2c3d4e5f6a7b", "name": "Podcasts", "mediaType": "podcast", "displayOrder": 2, "icon": "podcast", "provider": "itunes", "folders": [] },
+    { "id": "lib_second_books", "name": "More Books", "mediaType": "book", "displayOrder": 3, "icon": "books-1", "provider": "google", "folders": [] }
+  ]
+}

@@ -9,16 +9,35 @@ SAMPLE_DIR=/app/sample
 
 log() { printf '%s %s [entrypoint] %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" "$2"; }
 
+# We run as root here, and chown/chmod/cp follow symlinks. Anything in /data
+# is writable by the node user, so a symlink there could point root at any
+# file in the container. Never act through a symlink: the app-owned entries
+# in /data are removed and recreated, the user's files in /config are skipped.
+for p in "$DATA_DIR" "$CONFIG_DIR"; do
+  if [ -L "$p" ]; then
+    log ERROR "$p is a symlink; refusing to start"
+    exit 1
+  fi
+done
+for p in "$DATA_DIR/icon-cache" "$DATA_DIR/last-good.json"; do
+  if [ -L "$p" ]; then
+    log WARN "Removed symlink $p (the app recreates it)"
+    rm -f "$p"
+  fi
+done
+
 mkdir -p "$DATA_DIR/icon-cache" "$CONFIG_DIR"
-chown node:node "$DATA_DIR" "$DATA_DIR/icon-cache"
+chown -h node:node "$DATA_DIR" "$DATA_DIR/icon-cache"
 chmod 700 "$DATA_DIR/icon-cache"
-if [ -f "$DATA_DIR/last-good.json" ]; then
-  chown node:node "$DATA_DIR/last-good.json"
+if [ -f "$DATA_DIR/last-good.json" ] && [ ! -L "$DATA_DIR/last-good.json" ]; then
+  chown -h node:node "$DATA_DIR/last-good.json"
   chmod 600 "$DATA_DIR/last-good.json"
 fi
 
 for f in services.yaml settings.yaml; do
-  if [ ! -e "$CONFIG_DIR/$f" ]; then
+  if [ -L "$CONFIG_DIR/$f" ] && [ ! -e "$CONFIG_DIR/$f" ]; then
+    log WARN "$f is a broken symlink; not creating a sample over it"
+  elif [ ! -e "$CONFIG_DIR/$f" ]; then
     cp "$SAMPLE_DIR/$f" "$CONFIG_DIR/$f"
     chmod 644 "$CONFIG_DIR/$f"
     log INFO "Created sample $f in the app's config folder"

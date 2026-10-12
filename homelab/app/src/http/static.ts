@@ -44,6 +44,25 @@ export function rewriteBareImports(source: string): string {
   return source.replace(/(\bfrom\s*)(["'])preact\2/g, "$1$2./preact.mjs$2");
 }
 
+/**
+ * index.html marks each <script> with nonce="__CSP_NONCE__". It is replaced
+ * by a fixed string swap, not a template engine, so no config or request
+ * data can reach the page this way.
+ */
+export const NONCE_PLACEHOLDER = "__CSP_NONCE__";
+
+/** Put the nonce on every placeholder. The nonce comes from newNonce() (base64 only). */
+export function injectNonce(html: Buffer, nonce: string): Buffer {
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(nonce)) throw new Error("invalid CSP nonce");
+  return Buffer.from(html.toString("utf8").replaceAll(NONCE_PLACEHOLDER, () => nonce), "utf8");
+}
+
+/** Number of <script> tags that don't carry the nonce placeholder (they will be blocked by CSP). */
+export function scriptsWithoutNonce(html: string): number {
+  const tags = html.match(/<script\b[^>]*>/gi) ?? [];
+  return tags.filter((t) => !t.includes(`nonce="${NONCE_PLACEHOLDER}"`)).length;
+}
+
 export interface StaticFiles {
   index(): Promise<StaticFile | null>;
   /** `rel` is the already percent-decoded path after "static/". */
@@ -90,8 +109,17 @@ export function createStaticFiles(webDir: string, nodeModulesDir: string, log: L
     }
   }
 
+  let warnedNonce = false;
   return {
-    index: () => load("index.html"),
+    index: async () => {
+      const f = await load("index.html");
+      const missing = f ? scriptsWithoutNonce(f.body.toString("utf8")) : 0;
+      if (missing > 0 && !warnedNonce) {
+        warnedNonce = true;
+        log.warn(`index.html has ${missing} <script> tag(s) without nonce="${NONCE_PLACEHOLDER}"; CSP will block them`);
+      }
+      return f;
+    },
     file: load,
     vendor: (name) => vendor.get(name) ?? null,
   };

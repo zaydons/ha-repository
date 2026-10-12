@@ -17,7 +17,8 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { ConfigService, IconService, IconSet, Logger, StateService } from "../types.ts";
 import { ICON_SETS } from "../types.ts";
 import { createApiHandlers } from "./api.ts";
-import { ICON_CSP, send, sendError } from "./respond.ts";
+import { ICON_CSP, newNonce, pageCsp, send, sendError } from "./respond.ts";
+import { injectNonce } from "./static.ts";
 import type { StaticFiles } from "./static.ts";
 
 export interface RouterDeps {
@@ -61,7 +62,11 @@ export function createRouter(deps: RouterDeps): RequestHandler {
         run: async (_req, res) => {
           const f = await deps.files.index();
           if (!f) return sendError(res, 404, "not_found");
-          send(res, 200, f.body, f.contentType, { "Cache-Control": "no-cache" });
+          const nonce = newNonce();
+          send(res, 200, injectNonce(f.body, nonce), f.contentType, {
+            "Cache-Control": "no-cache",
+            "Content-Security-Policy": pageCsp(nonce),
+          });
         },
       },
     ],

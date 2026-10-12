@@ -1,0 +1,8 @@
+{
+  "/api/v1/wanted/missing": { "page": 1, "pageSize": 1, "sortKey": "releaseDate", "totalRecords": 42, "records": [{ "id": 77, "title": "Some Album", "monitored": true }] },
+  "/api/v1/queue/status": { "totalCount": 1, "count": 1, "unknownCount": 0, "errors": false, "warnings": false },
+  "/api/v1/artist": [
+    { "id": 1, "artistName": "Artist One", "monitored": true },
+    { "id": 2, "artistName": "Artist Two", "monitored": true }
+  ]
+}

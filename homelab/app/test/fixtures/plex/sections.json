@@ -1,0 +1,14 @@
+{
+  "MediaContainer": {
+    "size": 5,
+    "allowSync": false,
+    "title1": "Plex Library",
+    "Directory": [
+      { "key": "1", "type": "movie", "title": "Movies", "agent": "tv.plex.agents.movie" },
+      { "key": "2", "type": "show", "title": "TV Shows", "agent": "tv.plex.agents.series" },
+      { "key": "3", "type": "artist", "title": "Music", "agent": "tv.plex.agents.music" },
+      { "key": "4", "type": "movie", "title": "Kids Movies", "agent": "tv.plex.agents.movie" },
+      { "key": "5", "type": "photo", "title": "Photos", "agent": "com.plexapp.agents.none" }
+    ]
+  }
+}

@@ -148,3 +148,10 @@ test("sabnzbd: the query-param key never reaches a log line or an error, on any 
   assert.ok(errors.length >= 8);
   for (const s of [...lines, ...errors]) assert.ok(!s.includes(KEY), `leaked: ${s}`);
 });
+
+test("registry: sabnzbd and truenas are registered next to the other plugins", async () => {
+  const { findPlugin, plugins } = await import("../../src/widgets/index.ts");
+  assert.equal(findPlugin("sabnzbd"), sabnzbd);
+  assert.equal(findPlugin("truenas")?.type, "truenas");
+  assert.equal(plugins.length, 10);
+});
