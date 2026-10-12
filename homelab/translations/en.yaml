@@ -1,0 +1,11 @@
+configuration:
+  theme:
+    name: Theme
+    description: >-
+      auto follows your Home Assistant theme. light or dark forces that look
+      regardless of the Home Assistant theme.
+  log_level:
+    name: Log level
+    description: >-
+      How much the app writes to its log. Use debug only while troubleshooting.
+      Secrets are redacted at every level.

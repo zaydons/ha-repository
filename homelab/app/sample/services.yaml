@@ -1,0 +1,8 @@
+---
+# Homelab Dashboard services (Homepage-compatible format).
+# Placeholder shipped by the scaffold; the config workstream replaces it.
+- Getting started:
+    - Home Assistant:
+        icon: si-homeassistant
+        href: http://homeassistant.local:8123/
+        description: This dashboard's home

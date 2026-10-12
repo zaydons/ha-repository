@@ -1,0 +1,31 @@
+name: "Homelab Dashboard"
+description: "Homelab dashboard with service status and app stats, in the Home Assistant sidebar"
+version: "0.1.0"
+slug: "homelab"
+url: "https://github.com/zaydons/ha-repository/tree/main/homelab"
+arch:
+  - amd64
+  - aarch64
+stage: experimental
+init: true
+ingress: true
+ingress_port: 8099
+panel_icon: "mdi:view-dashboard-variant"
+panel_title: "Homelab"
+panel_admin: true
+watchdog: "http://[HOST]:[PORT:8099]/api/health"
+map:
+  # Needed to seed the sample files; the app never edits user files after that.
+  - type: app_config
+    read_only: false
+# Matched with Path.match against paths under /data (cache depth is 2).
+backup_exclude:
+  - "icon-cache"
+  - "icon-cache/*"
+  - "icon-cache/*/*"
+options:
+  theme: auto
+  log_level: info
+schema:
+  theme: "list(auto|light|dark)"
+  log_level: "list(debug|info|warning|error)"

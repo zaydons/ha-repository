@@ -1,0 +1,5 @@
+---
+# Homelab Dashboard settings (subset of Homepage's settings.yaml).
+# Placeholder shipped by the scaffold; the config workstream replaces it.
+# title: Homelab
+# tlsVerify: false
