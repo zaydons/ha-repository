@@ -39,6 +39,14 @@ export interface WidgetPlugin {
    * When true, fetch() should call ctx.setNowPlaying() on every success.
    */
   showsNowPlaying?(cfg: WidgetConfig): boolean;
+  /**
+   * Optional last say over the stat fields a tile shows, applied by the config
+   * engine after its normal selection (`fields:` or defaultFields, max 4).
+   * Returns a subset of `selected`, in order. Absent = `selected` unchanged.
+   * E.g. Jellyfin returns [] when `enableBlocks` is false (Homepage parity:
+   * no stat blocks, only the now-playing list).
+   */
+  selectFields?(cfg: WidgetConfig, selected: readonly string[]): string[];
   /** Only the requested fields need values; missing optional values are null. Throws WidgetError. */
   fetch(ctx: WidgetContext): Promise<Record<string, WidgetValue>>;
 }
