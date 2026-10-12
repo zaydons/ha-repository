@@ -57,6 +57,25 @@ export interface WidgetContext {
    * the scheduler; a no-op for tiles without a list. Last call wins.
    */
   setNowPlaying(items: NowPlayingItem[]): void;
+  /**
+   * Connection policy for plugins that open non-HTTP connections (the TrueNAS
+   * v2 WebSocket): the same values the HttpClient was built with. Optional and
+   * additive (WS4b). The scheduler should provide it; when it is absent,
+   * plugins fall back to the widget's own `tlsVerify` (default false), a 10 s
+   * timeout and the widget's secret keys.
+   */
+  net?: WidgetNetPolicy;
+}
+
+export interface WidgetNetPolicy {
+  /** false = accept any certificate (default, owner decision Q3). */
+  tlsVerify: boolean;
+  /** Extra trusted CA bundle (PEM), used only when tlsVerify is true. */
+  ca?: string;
+  /** Whole-session budget in seconds (connect plus every call). */
+  timeoutS: number;
+  /** Resolved secret values to redact from every message and log line. */
+  secrets: readonly string[];
 }
 
 export interface ReqOpts {
