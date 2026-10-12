@@ -1,0 +1,11 @@
+{
+  "/api/v3/movie": [
+    { "id": 1, "title": "Have It", "monitored": true, "hasFile": true, "isAvailable": true },
+    { "id": 2, "title": "Wanted And Released", "monitored": true, "hasFile": false, "isAvailable": true },
+    { "id": 3, "title": "Missing Not Yet Released", "monitored": true, "hasFile": false, "isAvailable": false },
+    { "id": 4, "title": "Unmonitored Without File", "monitored": false, "hasFile": false, "isAvailable": true },
+    { "id": 5, "title": "Unmonitored With File", "monitored": false, "hasFile": true, "isAvailable": true },
+    { "id": 6, "title": "Another Wanted", "monitored": true, "hasFile": false, "isAvailable": true }
+  ],
+  "/api/v3/queue/status": { "totalCount": 3, "count": 3, "unknownCount": 0, "errors": false, "warnings": false, "unknownErrors": false, "unknownWarnings": false }
+}
