@@ -17,7 +17,7 @@ export function Problems({ problems, onClose }) {
       onClose();
     }
   };
-  return html`<section id="hl-problems" class="problems" aria-label="Config problems" onKeyDown=${onKey}>
+  return html`<section id="hl-problems" class="problems" aria-label="Config problems" tabindex="-1" onKeyDown=${onKey}>
     <ul class="problems-list">
       ${problems.map(
         (p, i) => html`<li key=${i} class=${`problem sev-${p.severity}`}>

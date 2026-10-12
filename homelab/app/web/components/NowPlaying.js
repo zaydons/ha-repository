@@ -4,7 +4,8 @@
 // changes in place. All strings are text nodes (the stub's <b>…</b> probe
 // must show literally).
 import { html } from "../lib.js";
-import { NOW_PLAYING_ROWS } from "../model.js";
+import { NOW_PLAYING_ROWS, stripTicks } from "../model.js";
+import { RichText } from "./RichText.js";
 import { Glyph } from "./Glyph.js";
 
 /** @param {{ row: import("../model.js").NowRow }} props */
@@ -40,9 +41,13 @@ export function NowPlaying({ view }) {
         <div class="np-line2"><span class="skeleton np-skel-sub"></span></div>
       </div>`;
     } else if (i === 0 && view.kind === "error") {
-      content = html`<div class="np-row np-note"><div class="np-line1">
-        <span class="np-dash">—</span>${view.muted ? null : html`<span class="np-note-text">Not available</span>`}
-      </div></div>`;
+      content = view.message
+        ? html`<div class="np-row np-note is-error"><div class="np-line1" title=${stripTicks(view.message)}>
+            <${Glyph} name="alert" /><span class="np-note-text"><${RichText} text=${view.message} /></span>
+          </div></div>`
+        : html`<div class="np-row np-note"><div class="np-line1">
+            <span class="np-dash">—</span>${view.muted ? null : html`<span class="np-note-text">Not available</span>`}
+          </div></div>`;
     } else if (i === 0 && view.empty) {
       content = html`<div class="np-row np-note"><div class="np-line1">
         <${Glyph} name="playCircleOutline" /><span class="np-note-text">Nothing playing</span>

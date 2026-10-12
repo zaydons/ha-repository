@@ -56,6 +56,23 @@ const store = {
 const COLLAPSE_KEY = (/** @type {string} */ id) => `hl:collapsed:${id}`;
 const WELCOME_KEY = "hl:welcome-dismissed";
 
+/**
+ * Focus an element after the next render. Candidates are tried in order;
+ * an Element is used if still in the document, a string is a selector.
+ * @param {...(Element | string | null | undefined)} candidates
+ */
+function focusAfterRender(...candidates) {
+  setTimeout(() => {
+    for (const c of candidates) {
+      const el = typeof c === "string" ? document.querySelector(c) : c;
+      if (el instanceof HTMLElement && el.isConnected) {
+        el.focus();
+        return;
+      }
+    }
+  }, 0);
+}
+
 /** Group ids from the top down to the group containing the tile. @param {GroupT[]} groups @param {string} tileId @returns {string[]} */
 function groupPathOf(groups, tileId) {
   for (const g of groups) {
@@ -66,29 +83,47 @@ function groupPathOf(groups, tileId) {
   return [];
 }
 
-/** @param {GroupT[]} groups @param {Map<string, boolean>} out @param {boolean} all */
-function collectDefaults(groups, out, all) {
+/**
+ * Default collapsed state per group. The server already merged the global
+ * groupsInitiallyCollapsed with each group's initiallyCollapsed (review F2).
+ * @param {GroupT[]} groups @param {Map<string, boolean>} out
+ */
+function collectDefaults(groups, out) {
   for (const g of groups) {
-    out.set(g.id, g.collapsed || all);
-    collectDefaults(g.groups, out, all);
+    out.set(g.id, g.collapsed);
+    collectDefaults(g.groups, out);
   }
   return out;
 }
 
+/** @type {PollerState} */
+const INITIAL = { config: null, snap: null, lastPollAt: 0, error: null, refreshBusy: false, skew: 0, configAt: 0 };
+
 function App() {
-  const [ps, setPs] = useState(/** @type {PollerState} */ ({ config: null, snap: null, lastPollAt: 0, error: null, refreshBusy: false }));
-  const [now, setNow] = useState(Date.now());
+  const [ps, setPs] = useState(INITIAL);
+  const [clientNow, setClientNow] = useState(Date.now());
   const [overrides, setOverrides] = useState(/** @type {Record<string, boolean>} */ ({}));
   const [dismissedRev, setDismissedRev] = useState(-1);
-  const [problemsOpen, setProblemsOpen] = useState(false);
+  /** Where the problems list is open: next to its top-of-page openers, at the footer, or closed. */
+  const [problemsAt, setProblemsAt] = useState(/** @type {"top" | "footer" | null} */ (null));
   const [welcomeDismissed, setWelcomeDismissed] = useState(() => store.get(WELCOME_KEY) === "1");
   const [toast, setToast] = useState(/** @type {{ text: string, showProblems: boolean } | null} */ (null));
   const [spoken, setSpoken] = useState("");
   const poller = useRef(/** @type {ReturnType<typeof createPoller> | null} */ (null));
   const theme = useRef(/** @type {ReturnType<typeof startThemeBridge> | null} */ (null));
+  const opener = useRef(/** @type {Element | null} */ (null));
   const locale = defaultLocale();
 
-  // Live region (UX §10): one message per 10 s at most; a flap keeps the latest state.
+  // One polite live region. Clearing first makes a repeated message
+  // ("Config reloaded" twice) announce again (review F6).
+  const announceTimer = useRef(/** @type {any} */ (null));
+  const announce = useCallback((/** @type {string} */ text) => {
+    setSpoken("");
+    clearTimeout(announceTimer.current);
+    announceTimer.current = setTimeout(() => setSpoken(text), 100);
+  }, []);
+
+  // Health changes: one message per 10 s at most; a flap keeps the latest state (UX §10).
   const pending = useRef({
     down: /** @type {Set<string>} */ (new Set()),
     up: /** @type {Set<string>} */ (new Set()),
@@ -103,8 +138,8 @@ function App() {
     p.up.clear();
     if (!text) return;
     p.last = Date.now();
-    setSpoken(text);
-  }, []);
+    announce(text);
+  }, [announce]);
   const onHealthChange = useCallback(
     (/** @type {{ down: string[], up: string[] }} */ ch) => {
       const p = pending.current;
@@ -123,7 +158,6 @@ function App() {
   );
 
   useEffect(() => {
-    theme.current = startThemeBridge("auto");
     const p = createPoller({
       getConfig: () => getConfig(),
       getState: (rev) => getState(rev),
@@ -134,11 +168,11 @@ function App() {
       clearTimer: (h) => clearTimeout(/** @type {any} */ (h)),
       onChange: (s) => {
         setPs(s);
-        setNow(Date.now());
+        setClientNow(Date.now());
       },
       onToast: (t) => {
         setToast(t);
-        setSpoken(t.text);
+        announce(t.text);
       },
       onHealthChange,
     });
@@ -147,18 +181,23 @@ function App() {
     const onVis = () => p.visibilityChanged();
     document.addEventListener("visibilitychange", onVis);
     const ticker = setInterval(() => {
-      if (!document.hidden) setNow(Date.now());
+      if (!document.hidden) setClientNow(Date.now());
     }, 5000);
     return () => {
       p.stop();
       document.removeEventListener("visibilitychange", onVis);
       clearInterval(ticker);
     };
-  }, [onHealthChange]);
+  }, [onHealthChange, announce]);
 
   const config = ps.config;
+  // The theme bridge starts once the app option is known, so a forced light/dark
+  // theme doesn't flash the HA theme first (review F12). Until then styles.css
+  // follows prefers-color-scheme.
   useEffect(() => {
-    if (config) theme.current?.setOption(config.theme);
+    if (!config) return;
+    if (theme.current) theme.current.setOption(config.theme);
+    else theme.current = startThemeBridge(config.theme);
   }, [config?.theme]);
 
   useEffect(() => {
@@ -171,10 +210,7 @@ function App() {
     if (config) document.title = config.title;
   }, [config?.title]);
 
-  const defaults = useMemo(
-    () => (config ? collectDefaults(config.groups, new Map(), config.settings.groupsInitiallyCollapsed) : new Map()),
-    [config],
-  );
+  const defaults = useMemo(() => (config ? collectDefaults(config.groups, new Map()) : new Map()), [config]);
   const isCollapsed = useCallback(
     (/** @type {string} */ id) => {
       if (Object.hasOwn(overrides, id)) return overrides[id] === true;
@@ -195,9 +231,12 @@ function App() {
 
   if (!config) return ps.error ? html`<${Unreachable} message=${ps.error} />` : html`<${Booting} />`;
 
-  const backendStale = ps.lastPollAt > 0 && now - ps.lastPollAt > BACKEND_STALE_MS;
+  // Backend reachability uses the browser clock; server timestamps use the
+  // server clock (browser time + measured offset; review F1).
+  const since = ps.lastPollAt || ps.configAt;
+  const backendStale = since > 0 && clientNow - since > BACKEND_STALE_MS;
   /** @type {import("./model.js").ViewCtx} */
-  const ctx = { settings: config.settings, now, backendStale, lastPollAt: ps.lastPollAt, locale };
+  const ctx = { settings: config.settings, now: clientNow + ps.skew, clientNow, backendStale, lastPollAt: ps.lastPollAt, locale };
   const tiles = flattenTiles(config.groups);
   const h = health(tiles, ps.snap, ctx);
   const summary = headerSummary(h, ps.snap !== null);
@@ -210,6 +249,19 @@ function App() {
   const problems = allProblems(config);
   const warnings = warningCount(config);
   const bannerVisible = !!config.error && mode === "dashboard" && dismissedRev !== config.rev;
+
+  /** Open the problems list at a place, remembering the opener for focus restore (UX delta 8/9). */
+  const openProblems = (/** @type {"top" | "footer"} */ at) => {
+    opener.current = document.activeElement;
+    setProblemsAt(at);
+    focusAfterRender("#hl-problems");
+  };
+  const closeProblems = () => {
+    const back = opener.current;
+    setProblemsAt(null);
+    focusAfterRender(back, "#hl-footer-problems", ".chip", ".banner .text-btn", "main");
+  };
+  const toggleProblems = (/** @type {"top" | "footer"} */ at) => (problemsAt ? closeProblems() : openProblems(at));
 
   const focusFirstProblem = () => {
     const target = h.down[0] ?? h.issues[0];
@@ -227,22 +279,34 @@ function App() {
       const el = document.getElementById(tileDomId(target.id));
       if (!el) return;
       el.scrollIntoView({ block: "center", behavior: "auto" });
-      el.focus({ preventScroll: true });
+      // Visible ring even after a mouse click (UX delta 9, L1). focusVisible is
+      // Chromium/Firefox; the class covers Safari.
+      el.classList.add("is-target");
+      el.addEventListener("blur", () => el.classList.remove("is-target"), { once: true });
+      el.focus(/** @type {FocusOptions} */ ({ preventScroll: true, focusVisible: true }));
     }, 0);
   };
 
-  /** @type {{ text: string, onClick: () => void, expanded?: boolean } | null} */
+  /** @type {{ text: string, onClick: () => void, expanded?: boolean, controls?: string } | null} */
   let chip = null;
   if (config.error && mode === "dashboard" && dismissedRev === config.rev) {
-    chip = { text: "Config error", onClick: () => setDismissedRev(-1) };
+    chip = {
+      text: "Config error",
+      onClick: () => {
+        setDismissedRev(-1);
+        focusAfterRender(".banner-title");
+      },
+    };
   } else if (!config.error && warnings > 0) {
     chip = {
       text: `${warnings} config ${warnings === 1 ? "warning" : "warnings"}`,
-      onClick: () => setProblemsOpen((o) => !o),
-      expanded: problemsOpen,
+      onClick: () => toggleProblems("top"),
+      expanded: problemsAt === "top",
+      controls: "hl-problems",
     };
   }
   const showFooterToggle = problems.length > 0 && !bannerVisible && !chip && mode === "dashboard";
+  const problemsList = html`<${Problems} problems=${problems} onClose=${closeProblems} />`;
 
   return html`<div class="page">
     <${Header}
@@ -250,7 +314,7 @@ function App() {
       summary=${summary}
       onSummary=${focusFirstProblem}
       lastPollAt=${ps.lastPollAt}
-      now=${now}
+      now=${clientNow}
       stale=${backendStale}
       refreshBusy=${ps.refreshBusy}
       onRefresh=${() => poller.current?.refresh()}
@@ -258,22 +322,24 @@ function App() {
       announcement=${spoken}
       locale=${locale}
     />
-    <main class="main">
+    <main class="main" tabindex="-1">
       ${bannerVisible && config.error
         ? html`<${ConfigBanner}
             key=${config.rev}
             error=${config.error}
             loadedAt=${config.loadedAt}
             problemCount=${problems.length}
-            problemsOpen=${problemsOpen}
-            onToggleProblems=${() => setProblemsOpen((o) => !o)}
-            onDismiss=${() => setDismissedRev(config.rev)}
+            problemsOpen=${problemsAt === "top"}
+            onToggleProblems=${() => toggleProblems("top")}
+            onDismiss=${() => {
+              setDismissedRev(config.rev);
+              if (problemsAt === "top") setProblemsAt(null);
+              focusAfterRender(".chip", "main");
+            }}
             locale=${locale}
           />`
         : null}
-      ${problemsOpen && problems.length > 0
-        ? html`<${Problems} problems=${problems} onClose=${() => setProblemsOpen(false)} />`
-        : null}
+      ${problemsAt === "top" && problems.length > 0 ? problemsList : null}
       ${config.sampleInUse && !welcomeDismissed && mode !== "fatal"
         ? html`<${Welcome}
             title=${config.title}
@@ -281,6 +347,7 @@ function App() {
             onDismiss=${() => {
               store.set(WELCOME_KEY, "1");
               setWelcomeDismissed(true);
+              focusAfterRender(".group-toggle", "main");
             }}
           />`
         : null}
@@ -301,11 +368,13 @@ function App() {
             />`,
           )
         : null}
-      ${showFooterToggle && !problemsOpen
-        ? html`<p class="footer">
-            <button type="button" class="text-btn" aria-controls="hl-problems" aria-expanded="false"
-              onClick=${() => setProblemsOpen(true)}>Show all problems (${problems.length})</button>
-          </p>`
+      ${showFooterToggle
+        ? problemsAt === "footer"
+          ? html`<div class="footer-problems">${problemsList}</div>`
+          : html`<p class="footer">
+              <button type="button" id="hl-footer-problems" class="text-btn" aria-controls="hl-problems"
+                aria-expanded="false" onClick=${() => openProblems("footer")}>Show all problems (${problems.length})</button>
+            </p>`
         : null}
     </main>
     ${toast
@@ -315,8 +384,8 @@ function App() {
             ? {
                 label: "Show",
                 onClick: () => {
-                  setProblemsOpen(true);
                   setToast(null);
+                  openProblems(showFooterToggle ? "footer" : "top");
                 },
               }
             : null}

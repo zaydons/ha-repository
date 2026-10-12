@@ -32,6 +32,8 @@ export function Tile({ tile, snap, ctx, problems }) {
   const wv = widgetView(tile, result, ctx);
   const np = nowPlayingView(tile, result, wv, ctx.locale);
   const hasWidget = !!tile.widget;
+  // A Jellyfin tile with no stat fields shows the list directly under the name row (UX §14.1, L8).
+  const hasStatsBox = !!tile.widget && (tile.widget.fields.length > 0 || !tile.widget.nowPlaying);
   const note = !hasWidget && problems.length > 0 ? problems[0] : null;
 
   const descId = `d-${tile.id}`;
@@ -42,13 +44,23 @@ export function Tile({ tile, snap, ctx, problems }) {
     ...problems.map((p) => `Config problem: ${stripTicks(p.message)} (${problemLocation(p)})`),
   ]
     .filter(Boolean)
+    .map((s) => s.replace(/[.\s]+$/, ""))
     .join(". ");
+  const describedText = described ? `${described}.` : "";
 
-  const descText = sv.inline ?? tile.description ?? "";
+  // Description row priority (UX spec deltas 6, 7): down reason > config problem > description.
+  const configNote = hasWidget && problems.length > 0 ? problems[0] : null;
+  const descKind = sv.inline ? "reason" : configNote ? "config" : "desc";
+  const descTitle =
+    descKind === "reason"
+      ? sv.inline ?? ""
+      : descKind === "config" && configNote
+        ? `Config problem: ${stripTicks(configNote.message)} (${problemLocation(configNote)})`
+        : tile.description ?? "";
   const classes = [
     "tile",
     tile.href ? "is-link" : "is-static",
-    hasWidget ? "has-stats" : "",
+    hasStatsBox ? "has-stats" : "",
     tile.widget?.nowPlaying ? "has-np" : "",
     sv.kind === "down" ? "is-down" : "",
   ]
@@ -60,13 +72,18 @@ export function Tile({ tile, snap, ctx, problems }) {
       <${Icon} key=${tile.icon.kind === "img" ? tile.icon.src : "letter"} icon=${tile.icon} name=${tile.name} />
       <div class="tile-text">
         <span class="tile-name" title=${tile.name}>${tile.name}</span>
-        <span class=${sv.inline ? "tile-desc is-reason" : "tile-desc"} title=${descText}>
-          ${sv.inline ? html`<${Glyph} name="closeCircle" />` : null}${descText}
+        <span class=${descKind === "reason" ? "tile-desc is-reason" : descKind === "config" ? "tile-desc is-config" : "tile-desc"}
+          title=${descTitle}>
+          ${descKind === "reason" ? html`<${Glyph} name="closeCircle" />${sv.inline}` : null}
+          ${descKind === "config" && configNote
+            ? html`<${Glyph} name="alert" />Config problem: <${RichText} text=${configNote.message} />`
+            : null}
+          ${descKind === "desc" ? tile.description ?? "" : null}
         </span>
       </div>
       <${StatusPill} view=${sv} />
     </div>
-    ${hasWidget ? html`<${Stats} view=${wv} count=${tile.widget?.fields.length ?? 0} />` : null}
+    ${hasStatsBox ? html`<${Stats} view=${wv} count=${tile.widget?.fields.length ?? 0} />` : null}
     ${note
       ? html`<div class="stats" data-n="1" aria-hidden="true">
           <p class="stats-msg is-error" title=${stripTicks(note.message)}>
@@ -77,7 +94,7 @@ export function Tile({ tile, snap, ctx, problems }) {
       : null}
     <${NowPlaying} view=${np} />
     ${tile.href ? html`<${Glyph} name="openInNew" class="tile-open" />` : null}
-    <span id=${descId} class="vh">${described}</span>
+    <span id=${descId} class="vh">${describedText}</span>
   `;
 
   const label = tileLabel(tile, sv);

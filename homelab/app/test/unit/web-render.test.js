@@ -130,5 +130,48 @@ test("the hidden description carries status, stats and now playing for screen re
     { rev: 1, now: "", refreshing: false, status: { t1: { state: "up", kind: "http", httpStatus: 200, checkedAt: new Date(NOW - 12000).toISOString() } },
       widgets: { t1: { state: "ok", values: { playing: 1 }, nowPlaying: [{ title: "Dune", progressPct: 42 }] } } });
   const desc = all([root], (n) => n.props.id === root.props["aria-describedby"])[0];
-  assert.equal(text([desc]), "Up · HTTP 200 · checked 12s ago. Playing 1. Now playing, 1 stream: Dune, 42 percent");
+  assert.equal(text([desc]), "Up · HTTP 200 · checked 12s ago. Playing 1. Now playing, 1 stream: Dune, 42 percent.");
+});
+
+test("delta 7: an item problem on a widget tile shows in the description row; down reason wins", () => {
+  const w = { type: "sonarr", supported: true, hideErrors: false, fields: [{ key: "a", label: "A", format: "number" }] };
+  const problem = { severity: "warning", file: "services.yaml", line: 22, code: "key.unknown", message: "Unknown key `widgte`.", tileId: "t1" };
+  const base = { id: "t1", name: "Sonarr", description: "TV", href: "http://x.lan/", check: "http", widget: w };
+  const desc = (snap) => all([renderTile(base, snap, [problem])], (n) => cls(n).startsWith("tile-desc"))[0];
+  const cfgRow = desc(null);
+  assert.equal(cls(cfgRow), "tile-desc is-config");
+  assert.equal(text([cfgRow]), "Config problem: Unknown key widgte.");
+  assert.equal(all([cfgRow], (n) => n.tag === "code").length, 1);
+  assert.equal(cfgRow.props.title, "Config problem: Unknown key widgte. (services.yaml line 22)");
+  const down = desc({ rev: 1, now: "", refreshing: false, widgets: {}, status: { t1: { state: "down", kind: "http", reason: "refused" } } });
+  assert.equal(cls(down), "tile-desc is-reason");
+  assert.equal(text([down]), "Connection refused");
+  const plain = all([renderTile(base, null, [])], (n) => cls(n).startsWith("tile-desc"))[0];
+  assert.equal(text([plain]), "TV");
+});
+
+test("L8: a now-playing tile without stat fields has no stats box", () => {
+  const w = { type: "jellyfin", supported: true, hideErrors: false, nowPlaying: true, fields: [] };
+  const root = renderTile({ id: "t1", name: "Jellyfin", href: "http://x.lan/", check: "http", widget: w },
+    { rev: 1, now: "", refreshing: false, status: {}, widgets: { t1: { state: "error", error: { kind: "auth" } } } });
+  assert.equal(all([root], (n) => cls(n).split(" ").includes("stats")).length, 0);
+  assert.equal(cls(root).includes("has-stats"), false);
+  assert.match(text(all([root], (n) => cls(n).split(" ")[0] === "np")), /Sign-in failed/);
+});
+
+test("F4: the refresh button uses aria-disabled while busy, never disabled", async () => {
+  const { Header } = await import("../../web/components/Header.js");
+  let clicks = 0;
+  const props = { title: "Homelab", summary: null, onSummary() {}, lastPollAt: NOW, now: NOW, stale: false, onRefresh: () => clicks++, chip: null, announcement: "", locale: "en" };
+  const busy = expand(Header({ ...props, refreshBusy: true }))[0];
+  const btn = all([busy], (n) => cls(n).includes("refresh"))[0];
+  assert.equal(btn.props.disabled, undefined);
+  assert.equal(btn.props["aria-disabled"], "true");
+  btn.props.onClick();
+  assert.equal(clicks, 0);
+  const idle = all(expand(Header({ ...props, refreshBusy: false })), (n) => cls(n).includes("refresh"))[0];
+  idle.props.onClick();
+  assert.equal(clicks, 1);
+  const never = expand(Header({ ...props, lastPollAt: 0, stale: true, refreshBusy: false }));
+  assert.match(text(never), /Can't reach the dashboard backend\. Retrying\./);
 });

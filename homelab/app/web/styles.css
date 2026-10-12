@@ -18,6 +18,7 @@
   --hl-pill-mix: 10%;
   --hl-skeleton: rgba(0, 0, 0, 0.08);
   --hl-banner-error-bg: #fdecea;
+  --hl-link-on-error: #01579b;
   --hl-letter-bg: #e8eaed;
   --hl-mono-filter: none;
   --hl-radius: 12px;
@@ -43,6 +44,7 @@
   --hl-pill-mix: 16%;
   --hl-skeleton: rgba(255, 255, 255, 0.08);
   --hl-banner-error-bg: #3a1d1d;
+  --hl-link-on-error: #4fc3f7;
   --hl-letter-bg: #2c2c2c;
   --hl-mono-filter: invert(0.88);
   color-scheme: dark;
@@ -149,11 +151,12 @@ button.sum:hover { background: var(--hl-skeleton); }
 }
 .icon-btn .glyph { width: 24px; height: 24px; }
 .icon-btn:hover:not(:disabled) { background: var(--hl-skeleton); }
-.icon-btn:disabled { cursor: default; opacity: 0.8; }
+.icon-btn[aria-disabled="true"] { cursor: default; }
 .refresh-label { display: none; font-size: 13px; }
 .refresh.is-busy .refresh-glyph { animation: hl-spin 1s linear infinite; }
 @keyframes hl-spin { to { transform: rotate(360deg); } }
 
+.chip-short { display: none; }
 .chip {
   display: inline-flex; align-items: center; gap: 6px;
   height: 32px; padding: 0 12px;
@@ -182,12 +185,14 @@ button.sum:hover { background: var(--hl-skeleton); }
 .banner p, .card p { margin: 0 0 6px; }
 .banner-glyph { width: 24px; height: 24px; color: var(--hl-status-warn); }
 .banner-title { font-weight: 500; }
+.banner .text-btn, .banner .ext-link { color: var(--hl-link-on-error); }
 .banner-body, .welcome-body { min-width: 0; flex: 1; }
 .banner-actions, .card-actions { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: center; margin-top: 8px !important; }
 .banner-close { position: absolute; top: 4px; right: 4px; }
 
+.excerpt-fig { margin: 8px 0; }
 .excerpt {
-  margin: 8px 0; padding: 8px 12px; overflow-x: auto;
+  margin: 0; padding: 8px 12px; overflow-x: auto;
   background: var(--hl-card); border: 1px solid var(--hl-divider); border-radius: 8px;
   font: 13px/20px ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 }
@@ -224,6 +229,7 @@ button.sum:hover { background: var(--hl-skeleton); }
 .page-glyph.is-warn { color: var(--hl-status-warn); }
 
 .footer { margin: 24px 0 0; text-align: center; }
+.footer-problems { margin-top: 24px; }
 
 .toast {
   position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom)); transform: translateX(-50%);
@@ -284,6 +290,7 @@ button.sum:hover { background: var(--hl-skeleton); }
   position: absolute; right: 6px; bottom: 6px;
   width: 16px; height: 16px; color: var(--hl-text-2); opacity: 0;
 }
+.tile.is-target { outline: 2px solid var(--hl-focus); outline-offset: 2px; }
 .tile.is-link:hover .tile-open, .tile.is-link:focus-visible .tile-open { opacity: 1; }
 
 .tile-head {
@@ -298,7 +305,9 @@ button.sum:hover { background: var(--hl-skeleton); }
 .tile-name { font-size: 16px; line-height: 24px; font-weight: 500; }
 .tile-desc { font-size: 14px; line-height: 20px; color: var(--hl-text-2); min-height: 20px; }
 .tile-desc.is-reason { color: var(--hl-status-down-text, var(--hl-status-down)); }
-.tile-desc.is-reason .glyph { width: 14px; height: 14px; margin-right: 4px; vertical-align: -2px; color: var(--hl-status-down); }
+.tile-desc.is-reason .glyph, .tile-desc.is-config .glyph { width: 14px; height: 14px; margin-right: 4px; vertical-align: -2px; color: var(--hl-status-down); }
+.tile-desc.is-config { color: var(--hl-text); }
+.tile-desc.is-config .glyph { color: var(--hl-status-warn); }
 
 .icon { position: relative; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; }
 .icon-img { width: 40px; height: 40px; object-fit: contain; }
@@ -312,7 +321,8 @@ button.sum:hover { background: var(--hl-skeleton); }
 .icon.icon-failed .icon-fallback { visibility: visible; }
 
 /* status pill (UX §5.1): reserves its widest width so it never shifts */
-.pill-slot { min-width: 84px; display: flex; justify-content: flex-end; }
+/* No width reservation (UX delta 3): a wider pill only re-ellipsizes the name. */
+.pill-slot { min-width: 0; display: flex; justify-content: flex-end; }
 .pill {
   display: inline-flex; align-items: center; gap: 4px;
   height: 24px; padding: 0 8px;
@@ -325,7 +335,12 @@ button.sum:hover { background: var(--hl-skeleton); }
 .pill-down { color: var(--hl-status-down-text, var(--hl-status-down)); background: color-mix(in srgb, var(--hl-status-down) var(--hl-pill-mix), var(--hl-card)); }
 .pill-down .glyph { color: var(--hl-status-down); }
 .pill-nocheck, .pill-unknown { color: var(--hl-status-unknown-text, var(--hl-status-unknown)); background: color-mix(in srgb, var(--hl-status-unknown) var(--hl-pill-mix), var(--hl-card)); }
-.pill.is-stale { opacity: 0.6; }
+/* Stale (UX delta 1): unknown pill colours + its own glyph/word + ⏱; no opacity. */
+.pill.is-stale {
+  color: var(--hl-status-unknown-text, var(--hl-status-unknown));
+  background: color-mix(in srgb, var(--hl-status-unknown) var(--hl-pill-mix), var(--hl-card));
+}
+.pill.is-stale .glyph { color: inherit; }
 
 /* stats area (UX §4.1, §4.3): fixed height from config */
 .stats {
@@ -350,7 +365,7 @@ button.sum:hover { background: var(--hl-skeleton); }
 /* label row then value row, column by column */
 .stats[data-n] .stat-label { grid-row: 1; }
 .stats[data-n] .stat-value { grid-row: 2; }
-.stats.is-stale .stat-label, .stats.is-stale .stat-value { opacity: 0.6; }
+.stats.is-stale .stat-value { color: var(--hl-text-2); }
 .stale-badge {
   position: absolute; top: -9px; right: 0;
   display: inline-flex; align-items: center; gap: 2px;
@@ -388,7 +403,7 @@ button.sum:hover { background: var(--hl-skeleton); }
   border-top: 1px solid var(--hl-divider);
   height: 121px;
 }
-.np.is-stale .np-slot { opacity: 0.6; }
+.np.is-stale .np-title { color: var(--hl-text-2); }
 .np-head { display: flex; justify-content: space-between; height: 16px; margin-bottom: 8px;
   font-size: 12px; line-height: 16px; font-weight: 500; color: var(--hl-text-2); }
 .np-slot { height: 44px; }
@@ -406,6 +421,9 @@ button.sum:hover { background: var(--hl-skeleton); }
 .np-fill { display: block; height: 100%; background: var(--hl-focus); }
 .np-row.is-paused .np-fill { background: var(--hl-text-2); }
 .np-note .np-line1 { font-size: 14px; color: var(--hl-text-2); }
+.np-note.is-error .np-line1 { color: var(--hl-text); }
+.np-note.is-error .glyph { color: var(--hl-status-warn); }
+.np-note-text { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .np-dash { color: var(--hl-text-2); }
 .np-skel-glyph { width: 16px; height: 16px; }
 .np-skel-title { width: 60%; height: 12px; }
@@ -429,12 +447,19 @@ button.sum:hover { background: var(--hl-skeleton); }
   .updated.is-stale .updated-word { display: inline; }
   .sum { padding: 0 6px; }
   .refresh { margin-left: auto; }
+  .icon-btn { min-width: 44px; height: 44px; }
+  .sum, .chip { min-height: 44px; }
+  .chip { padding: 0 10px; }
+  .chip-long { display: none; }
+  .chip-short { display: inline; }
   .grid { --hl-gap: 12px; }
+  .grid, .grid.has-cols { grid-template-columns: minmax(0, 1fr); }
   .tile { padding: 12px; }
   .tile-head { grid-template-columns: 32px minmax(0, 1fr) auto; }
   .icon, .icon-img, .icon-letter-ch { width: 32px; height: 32px; }
   .icon-letter-ch { font-size: 15px; }
-  .tile.has-stats .tile-desc:not(.is-reason) { display: none; }
+  /* Description row on stats tiles only while down or with a config note (UX deltas 6, 7). */
+  .tile.has-stats .tile-desc:not(.is-reason):not(.is-config) { display: none; }
   .stats[data-n="3"], .stats[data-n="4"] {
     --n: 2;
     grid-template-rows: 16px 24px 16px 24px;
@@ -455,6 +480,13 @@ button.sum:hover { background: var(--hl-skeleton); }
 @container app (min-width: 600px) and (max-width: 899px) {
   .main, .hdr { padding-left: 16px; padding-right: 16px; }
 }
+
+/* HA narrow mode: HA's toolbar shows the panel title (UX delta 5). */
+:root[data-ha-narrow="true"] .hdr-title {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0;
+  overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+}
+:root[data-ha-narrow="true"] .hdr-bar { margin-left: auto; }
 
 /* ---------- reduced motion (UX §10) ---------- */
 @media (prefers-reduced-motion: reduce) {
