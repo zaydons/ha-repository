@@ -4,7 +4,7 @@ import { randomBytes } from "node:crypto";
 import type { ServerResponse } from "node:http";
 
 const CSP_COMMON =
-  "img-src 'self' data: https: http:; style-src 'self' 'unsafe-inline'; object-src 'none'; worker-src 'none'; " +
+  "img-src 'self' data: https: http:; style-src 'self'; object-src 'none'; worker-src 'none'; " +
   "frame-ancestors 'self'; base-uri 'none'; form-action 'none'";
 
 /** Default CSP on every response. index.html overrides it with pageCsp(). */

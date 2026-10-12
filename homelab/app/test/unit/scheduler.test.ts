@@ -725,3 +725,75 @@ test("scheduler: no job starts until ca.pem has loaded", async (t) => {
   assert.equal(h.httpCalls.length, 1);
   await h.sched.stop();
 });
+
+test("scheduler: logs the TLS-off line once per config load when global or any widget tlsVerify is off", async (t) => {
+  t.after(() => setLogSink(null));
+  const line = "TLS verification is off for widget/status requests (settings.yaml tlsVerify)";
+  const h = harness(cfg([tile("a", { widget: widget({ tlsVerify: true }) })], 1, { tlsVerify: true }));
+  await h.sched.start();
+  await settle(h);
+  assert.equal(h.logs.filter((l) => l.includes(line)).length, 0, "all verification on: no line");
+  h.config.emit(cfg([tile("a", { widget: widget({ tlsVerify: false }) })], 2, { tlsVerify: true }));
+  await settle(h);
+  assert.equal(h.logs.filter((l) => l.includes(line)).length, 1, "a widget turns it off");
+  h.config.emit(cfg([tile("a", { widget: widget({ tlsVerify: true }) })], 3, { tlsVerify: false }));
+  await settle(h);
+  assert.equal(h.logs.filter((l) => l.includes(line)).length, 2, "global off");
+  assert.ok(h.logs.find((l) => l.includes(line))!.includes(" INFO [scheduler] "));
+  await h.sched.stop();
+});
+
+test("scheduler: every config event reloads ca.pem, even when tiles and settings are unchanged", async (t) => {
+  t.after(() => setLogSink(null));
+  let pem: string | undefined;
+  let loads = 0;
+  const seen: unknown[] = [];
+  const c = cfg([tile("a", { check: { kind: "http", url: "https://10.0.0.1/" } })], 1, { tlsVerify: true });
+  const h = harness(c, {
+    deps: {
+      loadCa: async () => {
+        loads++;
+        return pem;
+      },
+      checkHttp: async (_u, o) => {
+        seen.push(o.ca);
+        return { state: "up", kind: "http", httpStatus: 200 };
+      },
+    },
+  });
+  await h.sched.start();
+  await settle(h);
+  pem = "-----BEGIN CERTIFICATE-----new";
+  h.config.emit(c); // e.g. only ca.pem changed
+  await settle(h);
+  assert.equal(loads, 2);
+  h.clock.t += 30_000;
+  h.sched.tick();
+  await settle(h);
+  assert.deepEqual(seen, [undefined, pem]);
+  await h.sched.stop();
+});
+
+test("scheduler: a returning viewer gets an immediate widget round even with widgetInterval > viewer TTL (N4)", async (t) => {
+  t.after(() => setLogSink(null));
+  const h = harness(cfg([tile("a", { widget: widget({ intervalS: 600 }) })]));
+  await h.sched.start();
+  h.sched.noteViewer();
+  await settle(h);
+  assert.equal(h.fetchCalls.length, 1);
+  // Viewer leaves; comes back after the TTL but well before the 600 s interval.
+  h.clock.t += VIEWER_TTL_MS + 10_000;
+  h.sched.tick();
+  await settle(h);
+  assert.equal(h.fetchCalls.length, 1);
+  h.sched.noteViewer();
+  await settle(h);
+  assert.equal(h.fetchCalls.length, 2, "immediate round on return");
+  // While the viewer stays, the normal interval applies again.
+  h.clock.t += 60_000;
+  h.sched.noteViewer();
+  h.sched.tick();
+  await settle(h);
+  assert.equal(h.fetchCalls.length, 2);
+  await h.sched.stop();
+});
