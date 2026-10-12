@@ -4,6 +4,9 @@
 
 import { sanitizeConfig, sanitizeState } from "./model.js";
 
+/** The refresh button is never disabled longer than this (UX §3.3, review F10). */
+export const MAX_RETRY_AFTER_S = 10;
+
 const TIMEOUT_MS = 10_000;
 
 export class ApiError extends Error {
@@ -76,7 +79,7 @@ export async function postRefresh(fetchImpl) {
   if (r.status === 202) return { accepted: true };
   if (r.status === 429) {
     const s = r.body && typeof r.body === "object" ? Number(/** @type {any} */ (r.body).retryAfterS) : NaN;
-    return { accepted: false, retryAfterS: Number.isFinite(s) && s > 0 ? Math.min(60, Math.ceil(s)) : 10 };
+    return { accepted: false, retryAfterS: Number.isFinite(s) && s > 0 ? Math.min(MAX_RETRY_AFTER_S, Math.ceil(s)) : 10 };
   }
   throw new ApiError(`api/refresh returned HTTP ${r.status}`, r.status);
 }

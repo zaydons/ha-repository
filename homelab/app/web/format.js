@@ -159,7 +159,7 @@ export function shortSpan(ms, locale = defaultLocale()) {
  * @param {number} ms @param {string} [locale]
  */
 export function clockTime(ms, locale = defaultLocale()) {
-  return new Date(ms).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+  return new Date(ms).toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" });
 }
 
 /**

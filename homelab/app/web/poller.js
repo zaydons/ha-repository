@@ -5,7 +5,7 @@
 // becomes visible again. No DOM access; dependencies are injected so the
 // logic is unit-tested with fakes (test/unit/web-poller.test.js).
 
-import { POLL_MS, flattenTiles, healthChanges, reloadToast } from "./model.js";
+import { POLL_MS, clockSkew, flattenTiles, healthChanges, reloadToast } from "./model.js";
 
 /** @typedef {import("./model.js").Config} Config */
 /** @typedef {import("./model.js").Snapshot} Snapshot */
@@ -17,6 +17,8 @@ import { POLL_MS, flattenTiles, healthChanges, reloadToast } from "./model.js";
  * @property {number} lastPollAt   ms of the last successful api/state (0 = never)
  * @property {string | null} error  last failure, null after a success
  * @property {boolean} refreshBusy
+ * @property {number} skew        server clock minus browser clock, ms, from the last snapshot (review F1)
+ * @property {number} configAt    browser ms when api/config first loaded (0 = never)
  */
 
 /**
@@ -39,7 +41,7 @@ export const REFRESH_MAX_MS = 10_000;
 /** @param {PollerDeps} deps */
 export function createPoller(deps) {
   /** @type {PollerState} */
-  const state = { config: null, snap: null, lastPollAt: 0, error: null, refreshBusy: false };
+  const state = { config: null, snap: null, lastPollAt: 0, error: null, refreshBusy: false, skew: 0, configAt: 0 };
   /** @type {unknown} */
   let timer = null;
   let inFlight = false;
@@ -71,7 +73,10 @@ export function createPoller(deps) {
     if (deps.isHidden()) return;
     inFlight = true;
     try {
-      if (!state.config) state.config = await deps.getConfig();
+      if (!state.config) {
+        state.config = await deps.getConfig();
+        state.configAt = deps.now();
+      }
       let snap = await deps.getState(state.config.rev);
       if (snap.rev !== state.config.rev) {
         const next = await deps.getConfig();
@@ -85,6 +90,7 @@ export function createPoller(deps) {
       if (changes.down.length || changes.up.length) deps.onHealthChange?.(changes);
       state.snap = snap;
       state.lastPollAt = deps.now();
+      state.skew = clockSkew(snap.now, state.lastPollAt);
       state.error = null;
       if (state.refreshBusy) {
         pollsSinceRefresh++;
