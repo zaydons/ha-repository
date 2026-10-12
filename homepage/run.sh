@@ -29,6 +29,11 @@ export HOMEPAGE_ALLOWED_HOSTS HOMEPAGE_ALLOWED_NETWORKS
 echo "Allowed hosts: $HOMEPAGE_ALLOWED_HOSTS"
 if [ -n "$HOMEPAGE_ALLOWED_NETWORKS" ]; then
   echo "Allowed client networks: $HOMEPAGE_ALLOWED_NETWORKS (plus loopback)"
+  case ",$HOMEPAGE_ALLOWED_NETWORKS," in
+    *"/0,"*)
+      echo "WARNING: client network guard effectively disabled (an allowed_networks entry is /0, which matches every address)"
+      ;;
+  esac
   NODE_OPTIONS="--require $LIB/lan-guard.cjs${NODE_OPTIONS:+ $NODE_OPTIONS}"
   export NODE_OPTIONS
 else

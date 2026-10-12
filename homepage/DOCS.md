@@ -73,6 +73,7 @@ Homepage has no login, so keep it on your home network.
 
 - **The main protection is your router.** Do not port-forward port 3000 to Home Assistant, and disable UPnP so devices cannot open ports on their own. Home Assistant Cloud remote access does not expose add-on ports.
 - `allowed_networks` is an extra layer of defence, not a replacement for the router. It cannot help if your router rewrites the source address of forwarded traffic (SNAT), or if a reverse proxy on your home network is reachable from the internet and forwards to Homepage.
+- Tunnel or proxy add-ons on the same Home Assistant host (for example Cloudflared, Nginx Proxy Manager, or Tailscale serve/Funnel) bypass `allowed_networks`, because their traffic comes from the host itself. Do not point them at port 3000.
 - `allowed_hosts` protects against DNS rebinding attacks from a browser. It does not restrict who can connect.
 
 ## Known Issues
