@@ -27,14 +27,17 @@ function normalise(address) {
 }
 
 // Builds a matcher for the given CIDR list plus loopback. Throws on an
-// invalid entry so a bad configuration fails loudly instead of open.
+// invalid entry (including an empty or out-of-range prefix) so a bad
+// configuration stops Node from starting instead of failing open.
 function _build(list) {
   const blockList = new net.BlockList();
   for (const cidr of [...LOOPBACK, ...list]) {
-    const [addr, prefixText] = String(cidr).trim().split('/');
+    const parts = String(cidr).trim().split('/');
+    const [addr, prefixText] = parts;
     const family = net.isIP(addr);
-    const prefix = Number(prefixText);
-    if (family === 0 || prefixText === undefined || !Number.isInteger(prefix)) {
+    const max = family === 4 ? 32 : 128;
+    const prefix = /^[0-9]{1,3}$/.test(prefixText || '') ? Number(prefixText) : NaN;
+    if (parts.length !== 2 || family === 0 || !(prefix >= 0 && prefix <= max)) {
       throw new Error(`lan-guard: invalid network ${JSON.stringify(cidr)}`);
     }
     blockList.addSubnet(addr, prefix, family === 4 ? 'ipv4' : 'ipv6');
@@ -58,7 +61,9 @@ const isAllowed = _build(configured);
 
 const lastLogged = new Map();
 function logDenied(address) {
-  const key = String(address);
+  // Log IPv4-mapped clients (dual-stack listener) as plain IPv4.
+  const n = normalise(address);
+  const key = n ? n.addr : String(address);
   const now = Date.now();
   const last = lastLogged.get(key);
   if (last !== undefined && now - last < LOG_INTERVAL_MS) return;
@@ -92,4 +97,4 @@ if (configured.length > 0) {
   wrap(https);
 }
 
-module.exports = { isAllowed, _build };
+module.exports = { isAllowed, _build, _logDenied: logDenied };

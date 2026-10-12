@@ -34,7 +34,7 @@ allowed_networks:
   - 169.254.0.0/16
   - fc00::/7
   - fe80::/10
-  - 100.64.0.0/10
+  - 100.64.0.0/10 # only if you use Tailscale; not a default
 ```
 
 #### Option: `allowed_hosts`
@@ -47,12 +47,13 @@ Homepage only answers requests whose `Host` matches its allow-list. The add-on b
 
 Entries must match exactly what appears in the browser's address bar, including the port. Wildcards (`*`) are not allowed.
 
-These hosts are always allowed automatically, and are listed in the add-on log at startup (`Allowed hosts: ...`):
+The add-on adds these hosts automatically and lists them in the add-on log at startup (`Allowed hosts: ...`):
 
-- every IP address of your Home Assistant host, with port 3000 (e.g. `192.168.1.20:3000`)
+- every IP address of your Home Assistant host (except link-local IPv6 addresses), with port 3000 (e.g. `192.168.1.20:3000`)
 - `homeassistant.local:3000` and `homeassistant:3000`
 - your Home Assistant host name, with and without `.local`, on port 3000
-- `localhost:3000` and `127.0.0.1:3000`
+
+`localhost:3000` and `127.0.0.1:3000` are always accepted by Homepage itself, so they are not listed in that log line.
 
 #### Option: `allowed_networks`
 Networks (in CIDR notation) that are allowed to connect to Homepage. Connections from any other address are dropped. Loopback is always allowed.
