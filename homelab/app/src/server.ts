@@ -15,7 +15,8 @@ import { readOptions, resolveConfigPathDisplay } from "./options.ts";
 import { attachGuard, isAllowedSource } from "./http/guard.ts";
 import { createRouter } from "./http/router.ts";
 import { createStaticFiles } from "./http/static.ts";
-import { createStubConfigService, createStubIconService, createStubStateService, parseScenario } from "./http/stubs.ts";
+import { createStubConfigService, createStubStateService, parseScenario } from "./http/stubs.ts";
+import { createIconService } from "./icons/index.ts";
 
 export const DEFAULT_PORT = 8099;
 const SHUTDOWN_GRACE_MS = 5000;
@@ -84,7 +85,7 @@ async function main(): Promise<void> {
   log.info(`Starting version ${env.HL_VERSION || "dev"} (Node ${process.version}), log level ${options.log_level}`);
 
   // Wiring point: WS1/WS2/WS6 replace these stubs with their factories.
-  const icons = createStubIconService(join(APP_ROOT, "node_modules"));
+  const icons = createIconService(ctx);
   const config = createStubConfigService(ctx, parseScenario(env.HL_STUB_SCENARIO));
   const state = createStubStateService(ctx);
 

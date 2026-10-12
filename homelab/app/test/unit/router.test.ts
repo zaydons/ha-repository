@@ -7,9 +7,9 @@ import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import { buildHttpServer, parsePort } from "../../src/server.ts";
 import { createStubConfigService, createStubIconService, createStubStateService } from "../../src/http/stubs.ts";
-import { rewriteBareImports } from "../../src/http/static.ts";
+import { NONCE_PLACEHOLDER, rewriteBareImports } from "../../src/http/static.ts";
 import { isJsonContentType } from "../../src/http/api.ts";
-import { CSP, ICON_CSP } from "../../src/http/respond.ts";
+import { CSP, ICON_CSP, pageCsp } from "../../src/http/respond.ts";
 import type { BootContext, Logger } from "../../src/types.ts";
 
 const APP = fileURLToPath(new URL("../..", import.meta.url));
@@ -60,9 +60,30 @@ test("GET / serves index.html with no-cache and security headers", async () => {
   assert.equal(r.headers["cache-control"], "no-cache");
   assert.equal(r.headers["x-content-type-options"], "nosniff");
   assert.equal(r.headers["referrer-policy"], "no-referrer");
-  assert.equal(r.headers["content-security-policy"], CSP);
   assert.equal(r.headers["x-frame-options"], undefined);
   assert.match(r.body, /src="static\/app\.js"/);
+});
+
+function nonceOf(r: Res): string {
+  const m = /script-src 'nonce-([A-Za-z0-9+/]+={0,2})'/.exec(String(r.headers["content-security-policy"]));
+  assert.ok(m, "CSP has a script nonce");
+  return m[1]!;
+}
+
+test("GET /: per-request CSP nonce in the header and on every script tag", async () => {
+  const a = await req("GET", "/");
+  const b = await req("GET", "/");
+  const na = nonceOf(a);
+  const nb = nonceOf(b);
+  assert.notEqual(na, nb);
+  assert.equal(Buffer.from(na, "base64").length, 16);
+  assert.equal(a.headers["content-security-policy"], pageCsp(na));
+  assert.doesNotMatch(String(a.headers["content-security-policy"]), /script-src[^;]*'self'/);
+  assert.ok(!a.body.includes(NONCE_PLACEHOLDER));
+  const tags = a.body.match(/<script\b[^>]*>/g) ?? [];
+  assert.ok(tags.length >= 1);
+  for (const t of tags) assert.ok(t.includes(`nonce="${na}"`), t);
+  assert.ok(!a.body.includes(nb));
 });
 
 test("every response, including 404, carries the security headers", async () => {
