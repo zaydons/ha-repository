@@ -51,7 +51,7 @@ test("jellyfin: owner config gives counts, playing and the list from one /Sessio
       paused: false,
     },
     { title: "The Example Episode", subtitle: "Sample Show", progressPct: 71, paused: true },
-    { title: "", paused: false },
+    { title: "Untitled", paused: false },
   ]);
 });
 
@@ -154,6 +154,13 @@ test("jellyfin: progress is omitted when runtime is unknown", () => {
     { type: "jellyfin" },
   );
   assert.deepEqual(item, { title: "Live", paused: false });
+});
+
+test("jellyfin: the list survives the scheduler's sanitiser unchanged", async () => {
+  const { sanitizeNowPlaying } = await import("../../src/scheduler.ts");
+  const items = nowPlayingItems(fixture("jellyfin", "sessions") as unknown[], { type: "jellyfin", enableUser: true });
+  assert.equal(items.length, 4);
+  assert.deepEqual(sanitizeNowPlaying(items), items);
 });
 
 test("jellyfin: missing counts are null; non-list sessions is bad_response", async () => {

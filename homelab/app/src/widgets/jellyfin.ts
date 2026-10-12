@@ -11,6 +11,13 @@ import { expectArray, expectRecord, isRecord, pickFields, toNumber, wants } from
 import { checkCredential, checkFlags, credential, flag, parseVersion, plainText } from "./lib/media.ts";
 import type { NowPlayingItem, WidgetConfig, WidgetContext, WidgetPlugin, WidgetValue } from "./types.ts";
 
+/**
+ * Title for an item without a name (ux.md copy C-34). The scheduler drops
+ * items with an empty title, so the plugin fills it in to keep the list
+ * consistent with the "playing" count.
+ */
+export const UNTITLED = "Untitled";
+
 /** Items kept in the list (UI shows 2, the screen-reader text up to 10). The count stays exact. */
 export const MAX_NOW_PLAYING = 20;
 
@@ -84,7 +91,7 @@ export function nowPlayingItems(sessions: readonly unknown[], cfg: Readonly<Widg
     const np = s.NowPlayingItem;
     const play = isRecord(s.PlayState) ? s.PlayState : {};
     const user = plainText(s.UserName, 100);
-    const item: NowPlayingItem = { title: plainText(np.Name) ?? "" };
+    const item: NowPlayingItem = { title: plainText(np.Name) ?? UNTITLED };
     const subtitle = subtitleOf(np, showEp);
     if (subtitle !== null) item.subtitle = subtitle;
     if (showUser && user !== null) item.user = user;
