@@ -445,6 +445,19 @@ export function validateServices(input: ServicesInput): ServicesResult {
       }
       fields = good.length > 0 ? good.slice(0, MAX_FIELDS) : plugin.defaultFields.slice(0, MAX_FIELDS);
     } else fields = plugin.defaultFields.slice(0, MAX_FIELDS);
+    // Plugin hook (e.g. Jellyfin enableBlocks: false → no stat row). Results are
+    // kept to known fields and the 4-field cap.
+    if (plugin.selectFields) {
+      try {
+        const picked = plugin.selectFields(cfg, fields);
+        if (Array.isArray(picked)) {
+          const allowed = new Set(plugin.fields.map((f) => f.key));
+          fields = picked.filter((f) => typeof f === "string" && allowed.has(f)).slice(0, MAX_FIELDS);
+        }
+      } catch (err) {
+        issue("warning", n.line, n.col, "widget.field", `The ${type} widget couldn't pick its fields (${err instanceof Error ? err.name : "error"}); showing the defaults.`, tileId);
+      }
+    }
 
     if (!configError && plugin.validate) {
       let msg: string | null = null;

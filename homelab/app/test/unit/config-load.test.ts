@@ -726,3 +726,16 @@ test("migration fixture with the real widget registry: no errors or warnings, re
   }
   assert.ok(!JSON.stringify(projectOf(b)).includes("SENTINEL"));
 });
+
+test("widgets: plugin.selectFields is applied (Jellyfin enableBlocks)", async () => {
+  const { plugins } = await import("../../src/widgets/index.ts");
+  const jf = (blocks: boolean) => `- G:\n    - JF:\n        widget:\n          type: jellyfin\n          url: http://jf.lan\n          key: abcdef\n          enableBlocks: ${blocks}\n`;
+  const on = ok(buildConfig({ services: jf(true), settings: null, secrets: null }, { plugins, icons: stubIcons() }));
+  const off = ok(buildConfig({ services: jf(false), settings: null, secrets: null }, { plugins, icons: stubIcons() }));
+  assert.ok(on.tiles[0]!.widget!.fields.length > 0);
+  assert.deepEqual(off.tiles[0]!.widget!.fields, []);
+  assert.equal(off.tiles[0]!.widget!.nowPlaying, true);
+  const throwing = stubPlugins.map((p) => (p.type === "sonarr" ? { ...p, selectFields: () => { throw new Error("boom"); } } : p));
+  const s = ok(buildConfig({ services: "- G:\n    - S:\n        widget:\n          type: sonarr\n          url: http://s.lan\n          key: abcdef\n", settings: null, secrets: null }, { plugins: throwing, icons: stubIcons() }));
+  assert.deepEqual(s.tiles[0]!.widget!.fields, ["wanted", "queued", "series"]);
+});
