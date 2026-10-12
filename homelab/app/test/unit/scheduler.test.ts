@@ -470,6 +470,7 @@ test("scheduler: the plugin context has cfg, fields, signal, HttpClient and setN
         assert.equal(c.cfg.key, SECRET);
         assert.equal(Object.isFrozen(c.cfg), true);
         assert.equal(c.signal.aborted, false);
+        assert.deepEqual(c.net, { tlsVerify: false, ca: undefined, timeoutS: 10, secrets: [SECRET] });
         c.setNowPlaying([
           { title: "<b>Movie</b> &", user: "alice", progressPct: 140, paused: false },
           { title: "" } as never,

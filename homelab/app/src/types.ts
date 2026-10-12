@@ -50,7 +50,7 @@ export interface AppPaths {
 export interface BootContext {
   options: AppOptions;
   paths: AppPaths;
-  /** Folder shown to the user in copy, e.g. "/addon_configs/f8d8b3af_homelab/" (design §12 Q4). */
+  /** Folder shown to the user in copy, e.g. "/addon_configs/a1b2c3d4_homelab/" (design §12 Q4). */
   configPathDisplay: string;
   log: Logger;
 }
@@ -94,7 +94,7 @@ export interface PublicConfig {
   rev: number;
   title: string;
   theme: ThemeOption;
-  /** e.g. "/addon_configs/f8d8b3af_homelab/" */
+  /** e.g. "/addon_configs/a1b2c3d4_homelab/" */
   configPath: string;
   sampleInUse: boolean;
   /** ISO time the shown groups were loaded. */

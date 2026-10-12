@@ -56,7 +56,7 @@ export function configPathFor(fullSlug: string | null): string {
 
 /**
  * Container hostnames are the full slug with "_" turned into "-"
- * ("f8d8b3af_homelab" -> "f8d8b3af-homelab"). Only the first "-" can be
+ * ("a1b2c3d4_homelab" -> "a1b2c3d4-homelab"). Only the first "-" can be
  * restored reliably, so this is a fallback for the Supervisor lookup.
  */
 export function slugFromHostname(name: string): string | null {
@@ -74,7 +74,7 @@ export function slugFromSupervisorInfo(body: unknown): string | null {
 }
 
 /**
- * The folder the user sees, e.g. "/addon_configs/f8d8b3af_homelab/". The full
+ * The folder the user sees, e.g. "/addon_configs/a1b2c3d4_homelab/". The full
  * slug comes from the Supervisor (allowed for every app without hassio_api),
  * so nothing here depends on the slug in config.yaml.
  */

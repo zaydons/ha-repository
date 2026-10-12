@@ -27,11 +27,11 @@ test("readOptions: missing file and bad JSON fall back to defaults", async (t) =
 });
 
 test("config path display from slug sources", () => {
-  assert.equal(configPathFor("f8d8b3af_homelab"), "/addon_configs/f8d8b3af_homelab/");
+  assert.equal(configPathFor("a1b2c3d4_homelab"), "/addon_configs/a1b2c3d4_homelab/");
   assert.equal(configPathFor("local_homelab_dev"), "/addon_configs/local_homelab_dev/");
   assert.equal(configPathFor("../etc"), "/addon_configs/");
   assert.equal(configPathFor(null), "/addon_configs/");
-  assert.equal(slugFromHostname("f8d8b3af-homelab"), "f8d8b3af_homelab");
+  assert.equal(slugFromHostname("a1b2c3d4-homelab"), "a1b2c3d4_homelab");
   assert.equal(slugFromHostname("3f2a9c1e7b44"), null);
   assert.equal(slugFromSupervisorInfo({ result: "ok", data: { slug: "local_homelab_dev" } }), "local_homelab_dev");
   assert.equal(slugFromSupervisorInfo({ data: { slug: "Bad Slug" } }), null);

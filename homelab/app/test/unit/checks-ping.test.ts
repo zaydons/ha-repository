@@ -12,12 +12,12 @@ function fakeExec(result: Partial<ExecResult>, calls: { file: string; args: stri
 }
 
 test("parsePingTarget: accepts hostnames, IPv4, IPv6 and http(s) URLs", () => {
-  assert.deepEqual(parsePingTarget("192.168.0.31"), { host: "192.168.0.31", ipv6: false });
+  assert.deepEqual(parsePingTarget("192.168.1.20"), { host: "192.168.1.20", ipv6: false });
   assert.deepEqual(parsePingTarget(" nas.lan "), { host: "nas.lan", ipv6: false });
   assert.deepEqual(parsePingTarget("truenas"), { host: "truenas", ipv6: false });
   assert.deepEqual(parsePingTarget("fd00::1"), { host: "fd00::1", ipv6: true });
   assert.deepEqual(parsePingTarget("[fd00::1]"), { host: "fd00::1", ipv6: true });
-  assert.deepEqual(parsePingTarget("http://192.168.0.31:8096/web"), { host: "192.168.0.31", ipv6: false });
+  assert.deepEqual(parsePingTarget("http://192.168.1.20:8096/web"), { host: "192.168.1.20", ipv6: false });
   assert.deepEqual(parsePingTarget("https://[fd00::2]:443/"), { host: "fd00::2", ipv6: true });
 });
 

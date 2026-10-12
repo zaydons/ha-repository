@@ -591,6 +591,7 @@ export class Scheduler implements StateService {
         http,
         signal: controller.signal,
         log,
+        net: { tlsVerify: w.tlsVerify, ca: this.ca, timeoutS, secrets: this.secrets },
         setNowPlaying: (items) => {
           nowPlaying = items;
         },

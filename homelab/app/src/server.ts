@@ -19,6 +19,9 @@ import { createStubConfigService, createStubStateService, parseScenario } from "
 import { createIconService } from "./icons/index.ts";
 import { createConfigService } from "./config/index.ts";
 import { plugins } from "./widgets/index.ts";
+import { createWidgetHttpClient, loadCaPem } from "./widgets/lib/http-client.ts";
+import { createScheduler } from "./scheduler.ts";
+import { Store } from "./store.ts";
 
 export const DEFAULT_PORT = 8099;
 const SHUTDOWN_GRACE_MS = 5000;
@@ -86,10 +89,12 @@ async function main(): Promise<void> {
 
   log.info(`Starting version ${env.HL_VERSION || "dev"} (Node ${process.version}), log level ${options.log_level}`);
 
-  // Wiring point: WS1/WS2/WS6 replace these stubs with their factories.
+  // HL_STUB_SCENARIO (UI development only) serves fixture config and state.
   const icons = createIconService(ctx);
   const config = env.HL_STUB_SCENARIO ? createStubConfigService(ctx, parseScenario(env.HL_STUB_SCENARIO)) : createConfigService(ctx, plugins, icons);
-  const state = createStubStateService(ctx);
+  const state = env.HL_STUB_SCENARIO
+    ? createStubStateService(ctx)
+    : createScheduler(ctx, config, new Store(), { createHttpClient: createWidgetHttpClient, loadCa: loadCaPem });
 
   await config.start();
   await state.start();
