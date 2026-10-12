@@ -1,0 +1,137 @@
+# Test fixture: mirrors the owner's Homepage config (structure unchanged), with
+# documentation-range IPs (RFC 5737) and fake sentinel keys.
+---
+# For configuration options and examples, please see:
+# https://gethomepage.dev/configs/services/
+
+# --- TrueNAS apps (host 192.0.2.31) ---
+- Media:
+    - Plex:
+        icon: plex.png
+        href: http://192.0.2.31:32400/web
+        description: Movies & TV
+        siteMonitor: http://192.0.2.31:32400/web
+        widget:
+          type: plex
+          url: http://192.0.2.31:32400
+          key: SENTINEL-K-0001-7f3a
+    - Jellyfin:
+        icon: jellyfin.png
+        href: http://192.0.2.31:8096/
+        description: Media server (port found by probing, not reported by TrueNAS)
+        siteMonitor: http://192.0.2.31:8096/
+        widget:
+          type: jellyfin
+          url: http://192.0.2.31:8096
+          version: 2
+          key: SENTINEL-K-0002-7f3a
+          enableBlocks: true
+          enableNowPlaying: true
+    - Immich:
+        icon: immich.png
+        href: http://192.0.2.31:30041/
+        description: Photos & videos
+        siteMonitor: http://192.0.2.31:30041/
+        widget:
+          type: immich
+          url: http://192.0.2.31:30041
+          version: 2
+          key: SENTINEL-K-0003-7f3a
+    - Audiobookshelf:
+        icon: audiobookshelf.png
+        href: http://192.0.2.31:30067/
+        description: Audiobooks & podcasts
+        siteMonitor: http://192.0.2.31:30067/
+        widget:
+          type: audiobookshelf
+          url: http://192.0.2.31:30067
+          key: SENTINEL-K-0004-7f3a
+
+- Media Management:
+    - Sonarr:
+        icon: sonarr.png
+        href: http://192.0.2.31:30113/
+        description: TV automation
+        siteMonitor: http://192.0.2.31:30113/
+        widget:
+          type: sonarr
+          url: http://192.0.2.31:30113
+          key: SENTINEL-K-0005-7f3a
+    - Radarr:
+        icon: radarr.png
+        href: http://192.0.2.31:30025/
+        description: Movie automation
+        siteMonitor: http://192.0.2.31:30025/
+        widget:
+          type: radarr
+          url: http://192.0.2.31:30025
+          key: SENTINEL-K-0006-7f3a
+    - Lidarr:
+        icon: lidarr.png
+        href: http://192.0.2.31:30071/
+        description: Music automation
+        siteMonitor: http://192.0.2.31:30071/
+        widget:
+          type: lidarr
+          url: http://192.0.2.31:30071
+          key: SENTINEL-K-0007-7f3a
+    - Prowlarr:
+        icon: prowlarr.png
+        href: http://192.0.2.31:30050/
+        description: Indexer manager
+        siteMonitor: http://192.0.2.31:30050/
+        widget:
+          type: prowlarr
+          url: http://192.0.2.31:30050
+          key: SENTINEL-K-0008-7f3a
+    - SABnzbd:
+        icon: sabnzbd.png
+        href: http://192.0.2.31:30055/
+        description: Usenet downloader
+        siteMonitor: http://192.0.2.31:30055/
+        widget:
+          type: sabnzbd
+          url: http://192.0.2.31:30055
+          key: SENTINEL-K-0009-7f3a
+
+- "Files & Tools":
+    - Filebrowser:
+        icon: filebrowser.png
+        href: http://192.0.2.31:30051/
+        description: File manager
+        siteMonitor: http://192.0.2.31:30051/
+    - Filebrowser Quantum:
+        icon: filebrowser.png
+        href: http://192.0.2.31:30334/
+        description: File manager (Quantum)
+        siteMonitor: http://192.0.2.31:30334/
+    - Address Book:
+        icon: mdi-contacts
+        href: http://192.0.2.31:8080/
+        description: Address book
+        siteMonitor: http://192.0.2.31:8080/
+    - MyLabVault:
+        icon: mdi-safe
+        href: http://192.0.2.31:8000/
+        description: Lab vault
+        siteMonitor: http://192.0.2.31:8000/
+
+- Infrastructure:
+    - TrueNAS:
+        icon: truenas.png
+        href: http://192.0.2.31/
+        description: NAS (nas1)
+        siteMonitor: http://192.0.2.31/
+        widget:
+          type: truenas
+          url: https://192.0.2.31
+          version: 2
+          key: SENTINEL-K-0010-7f3a
+          enablePools: true
+          fields: ["load", "uptime", "alerts"]
+    - HexOS:
+        icon: mdi-server
+        description: No web port reported by TrueNAS
+    - Cloudflared:
+        icon: cloudflare.png
+        description: Tunnel (no web UI)

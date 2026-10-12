@@ -17,6 +17,8 @@ import { createRouter } from "./http/router.ts";
 import { createStaticFiles } from "./http/static.ts";
 import { createStubConfigService, createStubStateService, parseScenario } from "./http/stubs.ts";
 import { createIconService } from "./icons/index.ts";
+import { createConfigService } from "./config/index.ts";
+import { plugins } from "./widgets/index.ts";
 
 export const DEFAULT_PORT = 8099;
 const SHUTDOWN_GRACE_MS = 5000;
@@ -86,7 +88,7 @@ async function main(): Promise<void> {
 
   // Wiring point: WS1/WS2/WS6 replace these stubs with their factories.
   const icons = createIconService(ctx);
-  const config = createStubConfigService(ctx, parseScenario(env.HL_STUB_SCENARIO));
+  const config = env.HL_STUB_SCENARIO ? createStubConfigService(ctx, parseScenario(env.HL_STUB_SCENARIO)) : createConfigService(ctx, plugins, icons);
   const state = createStubStateService(ctx);
 
   await config.start();
