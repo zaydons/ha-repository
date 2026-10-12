@@ -28,8 +28,9 @@ test("CSP and page CSP forbid objects and workers and keep frame/base/form rules
     assert.equal(d.get("frame-ancestors"), "'self'");
     assert.equal(d.get("base-uri"), "'none'");
     assert.equal(d.get("form-action"), "'none'");
-    assert.equal(d.get("style-src"), "'self' 'unsafe-inline'");
+    assert.equal(d.get("style-src"), "'self'", "no 'unsafe-inline' on page responses (C4)");
   }
+  for (const csp of [CSP, pageCsp(newNonce())]) assert.equal(csp.includes("unsafe-inline"), false);
   assert.equal(directives(CSP).has("script-src"), false);
 });
 
