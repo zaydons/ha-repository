@@ -1,0 +1,8 @@
+{
+  "/api/v3/movie": [
+    { "id": 1, "title": "No Flags At All" },
+    { "id": 2, "title": "Monitored, File Unknown", "monitored": true },
+    "not-an-object"
+  ],
+  "/api/v3/queue/status": { "count": 0, "errors": false }
+}

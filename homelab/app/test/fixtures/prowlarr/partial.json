@@ -1,0 +1,8 @@
+{
+  "/api/v1/indexerstats": {
+    "indexers": [
+      { "indexerId": 1, "indexerName": "Indexer A", "numberOfQueries": 10, "numberOfGrabs": 2 },
+      { "indexerId": 2, "indexerName": "Indexer B", "numberOfQueries": 5 }
+    ]
+  }
+}
