@@ -710,3 +710,19 @@ test("a recursive alias bomb is refused, not expanded", () => {
   assert.equal(r.ok, false);
   if (!r.ok) assert.match(r.error.message, /too many entries/);
 });
+
+test("migration fixture with the real widget registry: no errors or warnings, registered types are supported", async () => {
+  const { plugins } = await import("../../src/widgets/index.ts");
+  const services = readFileSync(join(FIX, "homepage-services.yaml"), "utf8");
+  const settings = readFileSync(join(FIX, "homepage-settings.yaml"), "utf8");
+  const b = ok(buildConfig({ services, settings, secrets: null }, { plugins, icons: stubIcons() }));
+  assert.deepEqual(b.problems.filter((p) => p.severity !== "info"), []);
+  for (const p of plugins) {
+    const tile = b.tiles.find((t) => t.widget?.type === p.type);
+    if (tile) {
+      assert.equal(tile.widget?.supported, true, p.type);
+      assert.equal(tile.widget?.configError, undefined, p.type);
+    }
+  }
+  assert.ok(!JSON.stringify(projectOf(b)).includes("SENTINEL"));
+});
