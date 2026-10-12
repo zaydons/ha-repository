@@ -7,7 +7,7 @@ A modern, fully static, fast, secure fully proxied, highly customizable applicat
 The installation is pretty quick. It should only take a few seconds to pull the prebuilt image.
 Click START and check the logs for "✓ Ready in ___ms". 
 
-You should be able to access Homepage at <your home assistnat IP>:3000. example: 192.168.0.20:3000.
+You should be able to access Homepage at <your home assistant IP>:3000. example: 192.168.0.20:3000.
 
 ## Configuration
 Homepage itself is configured using YAML files. These can be found in addon_configs/xxxxxxxx_homepage folder. Use another add-on like Studio Code Server or File editor to edit the necessary files to [configure](https://gethomepage.dev/configs/) your page.
