@@ -1,0 +1,14 @@
+configuration:
+  allowed_hosts:
+    name: Additional allowed hosts
+    description: >-
+      Extra host names Homepage accepts in the browser address, as host or
+      host:port (for example dash.lan:3000). The add-on already allows this
+      machine's IP addresses, homeassistant.local and its host name on port
+      3000. Wildcards and commas are not allowed.
+  allowed_networks:
+    name: Allowed client networks
+    description: >-
+      Networks (CIDR, for example 192.168.0.0/16) that may connect to
+      Homepage. Connections from other addresses are dropped. Localhost is
+      always allowed. An empty list turns this check off.
