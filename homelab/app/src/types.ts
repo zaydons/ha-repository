@@ -303,7 +303,11 @@ export interface ConfigService {
   getPublic(): PublicConfig;
   /** Current normalised config with secrets; null before the first good load. */
   getNormalised(): NormalisedConfig | null;
-  /** Called after each load that changed the normalised config. Returns an unsubscribe function. */
+  /**
+   * Called after each load that changed the normalised config, and after a
+   * change to /config/ca.pem alone (same config object, so listeners can
+   * reload the CA bundle). Returns an unsubscribe function.
+   */
   onChange(listener: (cfg: NormalisedConfig) => void): () => void;
 }
 

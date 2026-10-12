@@ -265,3 +265,92 @@ test("service: ignored Homepage files present in the folder are listed", async (
   const ignored = svc.getPublic().problems.filter((p) => p.code === "file.ignored").map((p) => p.file);
   assert.deepEqual(ignored.sort(), ["bookmarks.yaml", "docker.yaml"]);
 });
+
+// ---------------------------------------------------------------------------
+// Review B1: fatal excerpts must never carry a secret (AC9), through getPublic()
+// ---------------------------------------------------------------------------
+
+const B1_CASES: [string, string][] = [
+  ["flow map", `- Apps:\n    - Sonarr:\n        widget: {type: sonarr, url: "http://a", key: SENTINELKEY1}\n      bad: [\n`],
+  ["JSON style", `- Apps:\n    - Sonarr:\n        widget: {"type": "sonarr", "key": "SENTINELKEY1"}\n      bad: [\n`],
+  ["multi-line plain value", `- Apps:\n    - Sonarr:\n        widget:\n          key:\n            SENTINELKEY1\n         bad: x\n`],
+  ["value on the error line", `- Apps:\n    - Sonarr:\n        widget:\n         token: SENTINELKEY1\n          bad: [\n`],
+  ["block scalar", `- Apps:\n    - A:\n        description: |\n          SENTINELKEY1\n          more: SENTINELKEY1\n      bad: [\n`],
+  ["multi-line quoted", `- Apps:\n    - A:\n        description: "first\n          x: SENTINELKEY1"\n      bad: [\n`],
+  ["harmless key", `- Apps:\n    - A:\n        note: SENTINELKEY1\n      bad: [\n`],
+  ["comment", `- Apps:\n    - A:\n        # key: SENTINELKEY1\n\t\thref: x\n`],
+  ["tab line", `- Apps:\n    - A:\n\t\tkey: SENTINELKEY1\n`],
+];
+
+for (const [name, text] of B1_CASES) {
+  test(`B1: fatal excerpt never leaks an inline secret (${name})`, async (t) => {
+    const env = await setup({ "services.yaml": text });
+    t.after(env.cleanup);
+    const svc = env.make();
+    await svc.start();
+    const pub = svc.getPublic();
+    assert.ok(pub.error, `expected a fatal error for ${name}`);
+    assert.ok(pub.error.excerpt, "the excerpt is still shown");
+    const json = JSON.stringify(pub);
+    assert.ok(!json.includes("SENTINELKEY1"), `${name}: ${JSON.stringify(pub.error.excerpt)}`);
+    assert.ok(!env.lines.join("\n").includes("SENTINELKEY1"));
+  });
+}
+
+test("B1: fatal excerpts keep structure (indentation and key names) for fixing", async (t) => {
+  const env = await setup({ "services.yaml": "- Media:\n    - Plex:\n        href: http://plex.lan/\n       icon: plex.png\n" });
+  t.after(env.cleanup);
+  const svc = env.make();
+  await svc.start();
+  const ex = svc.getPublic().error!.excerpt!;
+  for (const l of ex.lines) assert.match(l, /^\s*(?:- )?(?:[A-Za-z]+:(?: ••••••)?|••••••)?$/, l);
+  assert.ok(ex.lines.some((l) => l.includes("href: ••••••")));
+});
+
+test("B1: secrets from the last good config are redacted from a later fatal excerpt", async (t) => {
+  const env = await setup({ "services.yaml": GOOD.replace("!secret sonarr_key", "LASTGOODKEY-0001"), "secrets.yaml": SECRETS });
+  t.after(env.cleanup);
+  const svc = env.make();
+  await svc.start();
+  // Same key, now on an unparseable line in an unusual position.
+  await writeFile(join(env.configDir, "services.yaml"), "- Apps:\n    - X: [LASTGOODKEY-0001\n");
+  await svc.reload();
+  const pub = svc.getPublic();
+  assert.ok(pub.error);
+  assert.ok(!JSON.stringify(pub).includes("LASTGOODKEY-0001"));
+});
+
+test("B1 (parsed path): an inline secret in a flow map is masked in warning excerpts", async (t) => {
+  const env = await setup({
+    "services.yaml": `- Apps:\n    - A:\n        widget: {type: sonarr, url: "http://a.lan", key: SENTINELKEY2, bogus: 1}\n        typo: 1\n    - B:\n        apikey:\n          SENTINELKEY3\n        typo2: 1\n`,
+  });
+  t.after(env.cleanup);
+  const svc = env.make();
+  await svc.start();
+  const pub = svc.getPublic();
+  assert.equal(pub.error, undefined);
+  assert.ok(pub.problems.some((p) => p.excerpt));
+  const json = JSON.stringify(pub);
+  assert.ok(!json.includes("SENTINELKEY2"), json);
+  assert.ok(!json.includes("SENTINELKEY3"), json);
+});
+
+// ---------------------------------------------------------------------------
+// Review N2: a ca.pem change fires onChange
+// ---------------------------------------------------------------------------
+
+test("N2: a ca.pem-only change fires onChange (reload and the watcher)", async (t) => {
+  const env = await setup({ "services.yaml": GOOD, "secrets.yaml": SECRETS });
+  t.after(env.cleanup);
+  const svc = env.make({ watch: true, useFsWatch: false, pollMs: 50, debounceMs: 10 });
+  await svc.start();
+  const got: NormalisedConfig[] = [];
+  svc.onChange((c) => got.push(c));
+  await writeFile(join(env.configDir, "ca.pem"), "-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n");
+  await waitFor(() => got.length === 1);
+  assert.equal(got[0]!.tiles[0]!.name, "Sonarr");
+  await svc.reload();
+  assert.equal(got.length, 1, "no change, no event");
+  await rm(join(env.configDir, "ca.pem"));
+  await waitFor(() => got.length === 2);
+});

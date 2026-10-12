@@ -13,12 +13,12 @@ import type {
 } from "../types.ts";
 import type { WidgetPlugin } from "../widgets/types.ts";
 import { setLogSecrets } from "../log.ts";
-import { buildConfig, CONFIG_FILES, IGNORED_FILES, SECRETS_FILE, SERVICES_FILE, SETTINGS_FILE } from "./load.ts";
+import { buildConfig, CA_FILE, IGNORED_FILES, WATCHED_FILES, SECRETS_FILE, SERVICES_FILE, SETTINGS_FILE } from "./load.ts";
 import type { BuiltConfig, FatalConfig, SourceTexts } from "./load.ts";
 import { readLastGood, textsHash, writeLastGood } from "./last-good.ts";
 import { project } from "./project.ts";
 import { DEFAULT_SETTINGS } from "./settings.ts";
-import { watchConfig } from "./watch.ts";
+import { fileSignature, watchConfig } from "./watch.ts";
 import type { Watcher, WatchOptions } from "./watch.ts";
 
 /** Config files larger than this are refused (they'd never be hand-written). */
@@ -114,6 +114,8 @@ export function createConfigService(
   let publicKey = "";
   let normalised: NormalisedConfig | null = null;
   let normalisedKey = "";
+  /** ca.pem mtime/size/inode: a change re-fires onChange so the scheduler reloads it (review N2). */
+  let caSig = "absent";
   let persistedHash: string | null = null;
   let watcher: Watcher | undefined;
   let running: Promise<void> | null = null;
@@ -155,7 +157,7 @@ export function createConfigService(
   const updateNormalised = () => {
     if (!good) return;
     const b = good.built;
-    const key = JSON.stringify([b.settings, b.tiles.map((t) => [t.id, t.hash, t.name, t.groupPath])]);
+    const key = JSON.stringify([b.settings, b.tiles.map((t) => [t.id, t.hash, t.name, t.groupPath]), caSig]);
     const changed = key !== normalisedKey;
     normalisedKey = key;
     normalised = { rev, settings: { ...b.settings }, tiles: b.tiles, secrets: b.secrets };
@@ -193,13 +195,14 @@ export function createConfigService(
 
   const doLoad = async (initial: boolean) => {
     const read = await readSources(configDir);
+    caSig = await fileSignature(join(configDir, CA_FILE));
     const ignoredFiles = await presentIgnoredFiles(configDir);
     const wasFatal = fatal;
     const hadGood = good;
     if (!read.ok) {
       fatal = { ok: false, error: read.error, problems: [read.error], secrets: [] };
     } else {
-      const res = buildConfig(read.texts, { plugins, icons, ignoredFiles });
+      const res = buildConfig(read.texts, { plugins, icons, ignoredFiles, knownSecrets: good?.built.secrets ?? [] });
       if (res.ok) {
         fatal = null;
         await acceptGood(res, read.texts, now().toISOString(), true);
@@ -274,7 +277,7 @@ export function createConfigService(
       }
       await reload(true);
       if (opts.watch !== false && !stopped) {
-        watcher = watchConfig(configDir, CONFIG_FILES, () => void reload(), log, opts);
+        watcher = watchConfig(configDir, WATCHED_FILES, () => void reload(), log, opts);
         await watcher.ready;
       }
     },

@@ -649,7 +649,8 @@ test("fatal: a broken secrets.yaml never shows its values in the excerpt", () =>
   assert.equal(r.ok, false);
   if (r.ok) return;
   assert.equal(r.error.file, "secrets.yaml");
-  assert.ok(!JSON.stringify(r).includes("SENTINEL-SECFILE"));
+  assert.ok(!JSON.stringify(r.problems).includes("SENTINEL-SECFILE"));
+  assert.ok(r.secrets.includes("SENTINEL-SECFILE-0001"), "loose values of a broken secrets.yaml are still redacted from logs");
 });
 
 test("fatal: messages and excerpts are redacted with secrets.yaml values", () => {
@@ -738,4 +739,21 @@ test("widgets: plugin.selectFields is applied (Jellyfin enableBlocks)", async ()
   const throwing = stubPlugins.map((p) => (p.type === "sonarr" ? { ...p, selectFields: () => { throw new Error("boom"); } } : p));
   const s = ok(buildConfig({ services: "- G:\n    - S:\n        widget:\n          type: sonarr\n          url: http://s.lan\n          key: abcdef\n", settings: null, secrets: null }, { plugins: throwing, icons: stubIcons() }));
   assert.deepEqual(s.tiles[0]!.widget!.fields, ["wanted", "queued", "series"]);
+});
+
+test("N11: ws:/wss: widget urls are rejected at load", () => {
+  const b = ok(build("- G:\n    - N:\n        widget:\n          type: truenas\n          url: wss://nas.lan\n          key: abcdef\n    - S:\n        widget:\n          type: sonarr\n          url: ws://s.lan\n          key: abcdef\n"));
+  for (const t of b.tiles) assert.match(t.widget!.configError!, /isn't a valid http\(s\) URL/, t.name);
+});
+
+test("N7: TrueNAS version 1 over http with a key gets an info note", () => {
+  const svc = (url: string, version: string) => `- G:\n    - N:\n        widget:\n          type: truenas\n          url: ${url}\n          key: abcdef\n${version}`;
+  const note = (r: BuiltConfig) => r.problems.filter((p) => p.code === "widget.insecure");
+  const v1 = ok(build(svc("http://nas.lan", "")));
+  assert.equal(note(v1).length, 1);
+  assert.equal(note(v1)[0]!.severity, "info");
+  assert.equal(note(v1)[0]!.line, 5);
+  assert.equal(note(ok(build(svc("http://nas.lan", "          version: 1\n")))).length, 1);
+  assert.equal(note(ok(build(svc("https://nas.lan", "")))).length, 0);
+  assert.equal(note(ok(build(svc("http://nas.lan", "          version: 2\n")))).length, 0);
 });

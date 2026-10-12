@@ -380,12 +380,25 @@ export function validateServices(input: ServicesInput): ServicesResult {
     if (cfg.url === undefined || cfg.url === null || cfg.url === "") {
       delete cfg.url;
       if (urlRequired && !(urlEntry && configError)) fail(n.line, n.col, "widget.config", `The ${type} widget needs \`url:\`.`);
-    } else if (typeof cfg.url !== "string" || !checkUrl(cfg.url, ["http:", "https:", "ws:", "wss:"])) {
+    } else if (typeof cfg.url !== "string" || !checkUrl(cfg.url)) {
       fail(urlEntry?.value.line ?? n.line, urlEntry?.value.col ?? n.col, "widget.config", `The ${type} widget's \`url\` isn't a valid http(s) URL.`);
     } else {
-      const c = checkUrl(cfg.url, ["http:", "https:", "ws:", "wss:"])!;
+      const c = checkUrl(cfg.url)!;
       for (const x of urlSecrets(c.url)) addHard(x);
       if (c.hadUserinfo && urlEntry) markLines(urlEntry.value);
+      // Review N7: TrueNAS v1 (REST) over plain http sends the key in clear,
+      // and TrueNAS 25.04+ revokes a key used that way.
+      const version = cfg.version === undefined || cfg.version === null ? 1 : Number(cfg.version);
+      if (type === "truenas" && version === 1 && c.url.protocol === "http:" && cfg.key) {
+        issue(
+          "info",
+          urlEntry?.value.line ?? n.line,
+          urlEntry?.value.col ?? n.col,
+          "widget.insecure",
+          "This TrueNAS widget sends its API key over plain http (version 1). TrueNAS 25.04 and later revoke keys used that way: use an https:// url or `version: 2`.",
+          tileId,
+        );
+      }
     }
 
     for (const req of plugin.configKeys.required) {

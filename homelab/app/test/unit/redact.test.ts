@@ -67,3 +67,8 @@ test("logger: lines are redacted, single-line, and level-filtered", (t) => {
   assert.ok(!lines[0]!.includes("\n"));
   assert.match(lines[0]!, /INFO \[test\] calling with ••••/);
 });
+
+test("redact: JSON-escaped form of a secret (review N6)", () => {
+  const s = 'pa"ss\\word';
+  assert.equal(redact(JSON.stringify({ k: s }), [s]), `{"k":"${REDACTED}"}`);
+});

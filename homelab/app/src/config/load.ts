@@ -3,10 +3,10 @@
 import type { IconService, NormalisedTile, Problem, PublicGroup, Settings } from "../types.ts";
 import type { WidgetPlugin } from "../widgets/types.ts";
 import { MIN_SECRET_LENGTH, redact } from "../redact.ts";
-import { buildExcerpt } from "./excerpt.ts";
+import { buildExcerpt, SECRET_KEY_RE } from "./excerpt.ts";
 import type { Issue } from "./issues.ts";
 import { parseYaml } from "./parse.ts";
-import type { ParsedFile } from "./parse.ts";
+import type { ParsedFile, PNode } from "./parse.ts";
 import { readSecrets } from "./secrets.ts";
 import { readSettings } from "./settings.ts";
 import { validateServices } from "./validate.ts";
@@ -14,7 +14,10 @@ import { validateServices } from "./validate.ts";
 export const SERVICES_FILE = "services.yaml";
 export const SETTINGS_FILE = "settings.yaml";
 export const SECRETS_FILE = "secrets.yaml";
+export const CA_FILE = "ca.pem";
 export const CONFIG_FILES = [SERVICES_FILE, SETTINGS_FILE, SECRETS_FILE] as const;
+/** Files whose changes trigger a reload: the config files plus ca.pem (read by the scheduler). */
+export const WATCHED_FILES = [...CONFIG_FILES, CA_FILE] as const;
 
 /** Homepage files a migrated folder may contain; each is listed once as info. */
 export const IGNORED_FILES = [
@@ -39,6 +42,8 @@ export interface BuildDeps {
   icons: Pick<IconService, "resolve">;
   /** Ignored Homepage files present in the folder. */
   ignoredFiles?: readonly string[];
+  /** Secrets known from elsewhere (the last good config): always redacted from problems. */
+  knownSecrets?: readonly string[];
 }
 
 export interface BuiltConfig {
@@ -77,10 +82,39 @@ function allLines(p: ParsedFile | null): Set<number> {
   return s;
 }
 
+/** Mark every line under a secret-looking key, and every `!secret` scalar, anywhere in the tree. */
+function markSecretSubtrees(node: PNode | null, out: Set<number>, under = false): void {
+  if (!node) return;
+  const mark = (n: PNode) => {
+    for (let l = n.line; l <= Math.max(n.line, n.endLine); l++) out.add(l);
+  };
+  if (node.kind === "scalar") {
+    if (under || node.tag === "!secret") mark(node);
+    return;
+  }
+  if (under) mark(node);
+  if (node.kind === "seq") for (const it of node.items) markSecretSubtrees(it, out, under);
+  else for (const e of node.entries) markSecretSubtrees(e.value, out, under || SECRET_KEY_RE.test(e.key));
+}
+
+/** Best-effort values from a secrets.yaml that may not parse: `name: value` lines. */
+function looseSecretValues(p: ParsedFile | null): string[] {
+  const out: string[] = [];
+  if (!p) return out;
+  for (const line of p.lines) {
+    const m = /^\s*[^\s#:][^:#]*:\s+(.+?)\s*$/.exec(line);
+    if (!m?.[1]) continue;
+    const v = m[1].replace(/\s+#.*$/, "");
+    out.push(v, v.replace(/^(["'])(.*)\1$/, "$2"), v.replace(/^["']/, ""));
+  }
+  return out;
+}
+
 function finish(
   issues: readonly Issue[],
   files: ReadonlyMap<string, { lines: string[]; sensitive: ReadonlySet<number> }>,
   secrets: readonly string[],
+  mode: "parsed" | "fatal" = "parsed",
 ): Problem[] {
   return issues.map((i) => {
     const p: Problem = { severity: i.severity, file: i.file, code: i.code, message: redact(i.message, secrets) };
@@ -89,7 +123,7 @@ function finish(
     if (i.tileId !== undefined) p.tileId = i.tileId;
     const f = files.get(i.file);
     if (f && i.severity !== "info") {
-      const ex = buildExcerpt(f.lines, i.line, f.sensitive, secrets);
+      const ex = buildExcerpt(f.lines, i.line, f.sensitive, secrets, mode);
       if (ex) p.excerpt = ex;
     }
     return p;
@@ -121,13 +155,15 @@ export function buildConfig(src: SourceTexts, deps: BuildDeps): BuildResult {
   const secretsYamlValues = [...sec.secrets.values()];
 
   if (fatal.length > 0) {
-    const secrets = usable(secretsYamlValues);
+    // Fail closed (review B1): fatal excerpts use the "fatal" mode, which masks
+    // every value, and redact every secret we can know of.
+    const secrets = usable([...secretsYamlValues, ...looseSecretValues(secretsFile), ...(deps.knownSecrets ?? [])]);
     const files = new Map<string, { lines: string[]; sensitive: ReadonlySet<number> }>();
     if (servicesFile) files.set(SERVICES_FILE, { lines: servicesFile.lines, sensitive: new Set() });
     if (settingsFile) files.set(SETTINGS_FILE, { lines: settingsFile.lines, sensitive: new Set() });
     // Every value in secrets.yaml is secret: mask all of its lines.
     if (secretsFile) files.set(SECRETS_FILE, { lines: secretsFile.lines, sensitive: allLines(secretsFile) });
-    const problems = finish(fatal, files, secrets);
+    const problems = finish(fatal, files, secrets, "fatal");
     return { ok: false, error: problems[0]!, problems, secrets };
   }
 
@@ -151,12 +187,17 @@ export function buildConfig(src: SourceTexts, deps: BuildDeps): BuildResult {
 
   const hardSecrets = usable([...sv.hardSecrets, ...st.providerSecrets]);
   const secrets = usable([...secretsYamlValues, ...sv.hardSecrets, ...sv.softSecrets, ...st.providerSecrets]);
+  const redactWith = usable([...secrets, ...(deps.knownSecrets ?? [])]);
+  const svcSensitive = new Set(sv.sensitiveLines);
+  markSecretSubtrees(servicesFile!.root, svcSensitive);
+  const setSensitive = new Set(st.sensitiveLines);
+  if (settingsFile) markSecretSubtrees(settingsFile.root, setSensitive);
   const files = new Map<string, { lines: string[]; sensitive: ReadonlySet<number> }>();
-  files.set(SERVICES_FILE, { lines: servicesFile!.lines, sensitive: sv.sensitiveLines });
-  if (settingsFile) files.set(SETTINGS_FILE, { lines: settingsFile.lines, sensitive: st.sensitiveLines });
+  files.set(SERVICES_FILE, { lines: servicesFile!.lines, sensitive: svcSensitive });
+  if (settingsFile) files.set(SETTINGS_FILE, { lines: settingsFile.lines, sensitive: setSensitive });
   if (secretsFile) files.set(SECRETS_FILE, { lines: secretsFile.lines, sensitive: allLines(secretsFile) });
 
-  const problems = finish(issues, files, secrets);
+  const problems = finish(issues, files, redactWith);
   // Stable order: severity, then file, then line.
   problems.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity] || a.file.localeCompare(b.file) || (a.line ?? 0) - (b.line ?? 0));
 

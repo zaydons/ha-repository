@@ -26,6 +26,7 @@ function secretForms(secret: string): string[] {
   try {
     forms.add(encodeURIComponent(secret));
     forms.add(new URLSearchParams({ x: secret }).toString().slice(2)); // form encoding ("+" for space)
+    forms.add(JSON.stringify(secret).slice(1, -1)); // JSON-escaped (log fields are JSON.stringify'd)
   } catch {
     // lone surrogates can't be encoded; the raw form is still redacted
   }
