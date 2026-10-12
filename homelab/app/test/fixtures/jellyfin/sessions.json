@@ -1,0 +1,54 @@
+[
+  {
+    "Id": "s-idle-0001",
+    "UserName": "idle-user",
+    "Client": "Jellyfin Web",
+    "DeviceName": "Firefox",
+    "PlayState": { "CanSeek": false, "IsPaused": false, "IsMuted": false }
+  },
+  {
+    "Id": "s-ep-0002",
+    "UserName": "sam",
+    "Client": "Jellyfin Android TV",
+    "PlayState": { "PositionTicks": 9585000000, "IsPaused": true },
+    "NowPlayingItem": {
+      "Name": "The Example Episode",
+      "Type": "Episode",
+      "SeriesName": "Sample Show",
+      "ParentIndexNumber": 2,
+      "IndexNumber": 5,
+      "RunTimeTicks": 13500000000
+    }
+  },
+  {
+    "Id": "s-movie-0003",
+    "UserName": "Alex",
+    "Client": "Jellyfin Web",
+    "PlayState": { "PositionTicks": 41580000000, "IsPaused": false },
+    "NowPlayingItem": {
+      "Name": "Dune: Part Two",
+      "Type": "Movie",
+      "ProductionYear": 2024,
+      "RunTimeTicks": 99000000000
+    }
+  },
+  {
+    "Id": "s-audio-0004",
+    "UserName": "sam",
+    "PlayState": { "PositionTicks": 0, "IsPaused": false },
+    "NowPlayingItem": {
+      "Name": "<b>Track</b> & <img src=x onerror=alert(1)>",
+      "Type": "Audio",
+      "Album": "Example Album",
+      "AlbumArtist": "Example‮Artist",
+      "Artists": ["Other Artist"],
+      "RunTimeTicks": 2400000000
+    }
+  },
+  {
+    "Id": "s-tv-0005",
+    "UserName": "zed",
+    "PlayState": { "IsPaused": false },
+    "NowPlayingItem": { "Type": "TvChannel" }
+  }
+]

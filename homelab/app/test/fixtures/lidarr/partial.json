@@ -1,0 +1,5 @@
+{
+  "/api/v1/wanted/missing": { "page": 1, "pageSize": 1, "totalRecords": 0, "records": [] },
+  "/api/v1/queue/status": { "count": 0 },
+  "/api/v1/artist": []
+}
