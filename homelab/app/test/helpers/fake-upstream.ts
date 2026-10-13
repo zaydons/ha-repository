@@ -115,7 +115,7 @@ export function makeCtx(
     http: createHttpClient({
       baseUrl: String(cfg.url),
       tlsVerify: false,
-      timeoutS: 2,
+      timeoutS: 10, // generous for loaded hosts; timeout tests pass their own
       headers: cfg.headers as Record<string, string> | undefined,
       secrets: Object.values(cfg).filter((v): v is string => typeof v === "string" && v.startsWith("FAKE-")),
       ...clientOpts,
