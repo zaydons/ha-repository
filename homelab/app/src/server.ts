@@ -16,7 +16,7 @@ import { attachGuard, isAllowedSource } from "./http/guard.ts";
 import { createRouter } from "./http/router.ts";
 import { createStaticFiles } from "./http/static.ts";
 import { createStubConfigService, createStubStateService, parseScenario } from "./http/stubs.ts";
-import { createIconService } from "./icons/index.ts";
+import { createIconService } from "./iconsvc/index.ts";
 import { createConfigService } from "./config/index.ts";
 import { plugins } from "./widgets/index.ts";
 import { createWidgetHttpClient, loadCaPem } from "./widgets/lib/http-client.ts";

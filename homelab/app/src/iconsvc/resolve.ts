@@ -4,18 +4,23 @@
 //   mdi-<name>[-#rrggbb]        bundled @mdi/svg
 //   si-<name>[-#rrggbb]         bundled simple-icons
 //   sh-<name>[.png|.svg|.webp]  selfh.st icons (CDN, cached)
-//   /icons/<file>               /config/icons/<file> only
-//   <name>[.png|.svg|.webp]     /config/icons/<file> if present, else dashboard-icons (CDN, cached)
+//   /icons/<file>               /config/custom-icons/<file> only (Homepage's syntax, kept)
+//   <name>[.png|.svg|.webp]     /config/custom-icons/<file> if present, else dashboard-icons (CDN, cached)
 //   http(s)://...               passed to the browser as-is (userinfo stripped)
 //
 // Anything else becomes the letter fallback.
+//
+// The folder is "custom-icons", not Homepage's "icons": HA's Samba app vetoes
+// "icon?" by default, so users couldn't create a folder named "icons" over Samba.
 
 /** Bundled pack glyph names (mdi uses '-', simple-icons slugs may use '_'). */
 export const PACK_NAME_RE = /^[a-z0-9][a-z0-9_-]{0,100}$/;
 /** CDN base names (design §6). */
 export const CDN_NAME_RE = /^[a-z0-9][a-z0-9._-]{0,100}$/;
-/** Files in /config/icons/. No slash, no leading dot. */
+/** Files in /config/custom-icons/. No slash, no leading dot. */
 export const LOCAL_FILE_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,100}\.(png|svg|webp)$/;
+/** The user's local icons folder, inside the app's config folder. */
+export const LOCAL_DIR = "custom-icons";
 export const COLOUR_RE = /^[0-9a-fA-F]{6}$/;
 
 export type CdnSet = "di" | "sh";
