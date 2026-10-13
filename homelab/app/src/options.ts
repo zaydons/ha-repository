@@ -1,6 +1,7 @@
 // App options (/data/options.json) and the config folder path shown in UI copy.
 import { readFile } from "node:fs/promises";
 import { hostname } from "node:os";
+import { isAbsolute, join } from "node:path";
 import type { AppOptions, Logger, LogLevel, ThemeOption } from "./types.ts";
 
 export const DEFAULT_OPTIONS: Readonly<AppOptions> = { theme: "auto", log_level: "info" };
@@ -25,6 +26,17 @@ export function parseOptions(raw: unknown): { options: AppOptions; invalid: stri
     else invalid.push("log_level");
   }
   return { options, invalid };
+}
+
+/**
+ * Where to read the app options. The Supervisor writes /data/options.json
+ * readable by root only, so entrypoint.sh (still root) copies it to a
+ * root-owned, node-readable file and passes that path in HL_OPTIONS_FILE.
+ * Without it (local runs), read <dataDir>/options.json directly.
+ */
+export function optionsFilePath(env: NodeJS.ProcessEnv, dataDir: string): string {
+  const f = env.HL_OPTIONS_FILE;
+  return f && isAbsolute(f) ? f : join(dataDir, "options.json");
 }
 
 export async function readOptions(file: string, log: Logger): Promise<AppOptions> {
@@ -55,13 +67,16 @@ export function configPathFor(fullSlug: string | null): string {
 }
 
 /**
- * Container hostnames are the full slug with "_" turned into "-"
- * ("a1b2c3d4_homelab" -> "a1b2c3d4-homelab"). Only the first "-" can be
- * restored reliably, so this is a fallback for the Supervisor lookup.
+ * Container hostnames are the full slug with every "_" turned into "-"
+ * ("a1b2c3d4_homelab" -> "a1b2c3d4-homelab", "local_homelab_dev" ->
+ * "local-homelab-dev"). Slugs can't contain "-", so every "-" maps back to "_".
+ * This is a fallback for the Supervisor lookup; a name without "-" (a random
+ * Docker container id) gives null.
  */
 export function slugFromHostname(name: string): string | null {
-  const m = /^([a-z0-9]+)-([a-z0-9][a-z0-9-]*)$/.exec(name);
-  return m ? `${m[1]}_${m[2]}` : null;
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)+$/.test(name)) return null;
+  const slug = name.replaceAll("-", "_");
+  return SLUG_RE.test(slug) ? slug : null;
 }
 
 /** Shape of GET http://supervisor/addons/self/info: { result, data: { slug } }. */

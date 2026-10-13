@@ -50,4 +50,29 @@ for f in services.yaml settings.yaml secrets.yaml; do
   fi
 done
 
+# The Supervisor writes /data/options.json readable by root only, so the node
+# user can't read it. Copy it (it holds only theme/log_level) into a directory
+# only root can write, readable by the node group, and tell the app where it
+# is. /data is node-owned, so refuse a symlink there; no node process is
+# running yet, so nothing can swap the file between the check and the copy.
+OPTIONS_SRC="$DATA_DIR/options.json"
+OPTIONS_DIR=/run/homelab
+OPTIONS_MAX_BYTES=65536
+if [ -L "$OPTIONS_SRC" ]; then
+  log WARN "options.json is a symlink; ignoring it and using default app options"
+elif [ -f "$OPTIONS_SRC" ]; then
+  size=$(wc -c < "$OPTIONS_SRC")
+  if [ "$size" -gt "$OPTIONS_MAX_BYTES" ]; then
+    log WARN "options.json is larger than $OPTIONS_MAX_BYTES bytes; using default app options"
+  else
+    rm -rf "$OPTIONS_DIR"
+    mkdir -m 750 "$OPTIONS_DIR"
+    chown root:node "$OPTIONS_DIR"
+    cp "$OPTIONS_SRC" "$OPTIONS_DIR/options.json"
+    chown root:node "$OPTIONS_DIR/options.json"
+    chmod 640 "$OPTIONS_DIR/options.json"
+    export HL_OPTIONS_FILE="$OPTIONS_DIR/options.json"
+  fi
+fi
+
 exec su-exec node:node node /app/src/server.ts
