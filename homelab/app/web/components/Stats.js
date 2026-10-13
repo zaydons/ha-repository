@@ -6,6 +6,11 @@ import { stripTicks } from "../model.js";
 import { Glyph } from "./Glyph.js";
 import { RichText } from "./RichText.js";
 
+/** @param {import("../model.js").Cell} c */
+function valueClass(c) {
+  return c.missing ? "stat-value is-missing" : c.text ? "stat-value is-text" : "stat-value";
+}
+
 /** @param {{ view: import("../model.js").WidgetView, count: number }} props */
 export function Stats({ view, count }) {
   const n = Math.max(1, Math.min(4, count));
@@ -27,7 +32,7 @@ export function Stats({ view, count }) {
         <span class="stat-label" title=${c.label}>${c.label}</span>
         ${loading
           ? html`<span class="stat-value"><span class="skeleton skeleton-value"></span></span>`
-          : html`<span class=${c.missing ? "stat-value is-missing" : "stat-value"} title=${c.title || c.value}>${c.value}</span>`}
+          : html`<span class=${valueClass(c)} title=${c.title || c.value}>${c.value}</span>`}
       </div>`,
     )}
     ${view.kind === "stale"

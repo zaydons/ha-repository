@@ -87,3 +87,14 @@ test("no inline SVG from data: icons only via <img src> (R3)", () => {
   const svgUsers = js.filter((s) => s.name !== "icons.js" && /<svg\b/.test(s.text)).map((s) => s.name);
   assert.deepEqual(svgUsers, [join("components", "Glyph.js")]);
 });
+
+test("stat values are never ellipsized; labels and free text yield first (F-2)", () => {
+  const css = readFileSync(join(WEB, "styles.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const rules = (sel) => [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter((m) => m[1].split(",").some((s) => s.trim() === sel)).map((m) => m[2]);
+  assert.match(rules(".stats").join(";"), /grid-template-columns:\s*repeat\(var\(--n, 4\), minmax\(auto, 1fr\)\)/);
+  const value = rules(".stat-value").join(";");
+  assert.match(value, /min-width:\s*auto/);
+  assert.doesNotMatch(value, /overflow|text-overflow|min-width:\s*0/, "a formatted value keeps its full width");
+  assert.match(rules(".stat-label").join(";"), /min-width:\s*0[\s\S]*text-overflow:\s*ellipsis/);
+  assert.match(rules(".stat-value.is-text").join(";"), /text-overflow:\s*ellipsis/);
+});

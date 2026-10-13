@@ -342,11 +342,20 @@ button.sum:hover { background: var(--hl-skeleton); }
 }
 .pill.is-stale .glyph { color: inherit; }
 
-/* stats area (UX §4.1, §4.3): fixed height from config */
+/* stats area (UX §4.1, §4.3): fixed height from config.
+   Values are never cut (F-2): columns are equal (1fr) while every value fits
+   its share; a wider value widens its own column (its automatic minimum is
+   its full width) and the other columns' labels ellipsize instead. Labels
+   have overflow hidden, so their minimum is 0 and they always yield first.
+   Only the row width can change this, never the tile height. */
 .stats {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr));
+  grid-template-columns: repeat(var(--n, 4), minmax(auto, 1fr));
+  /* Last resort when the values alone are wider than the row: clip inside
+     the tile instead of spilling over its border. Inline axis only, so the
+     stale badge above the divider stays visible. */
+  overflow-x: clip;
   grid-template-rows: 16px 24px;
   row-gap: 4px; column-gap: 8px;
   height: 53px;
@@ -358,9 +367,19 @@ button.sum:hover { background: var(--hl-skeleton); }
 .stats[data-n="3"] { --n: 3; }
 .stats[data-n="4"] { --n: 4; }
 .stat { display: contents; }
-.stat-label, .stat-value { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.stat-label { font-size: 12px; line-height: 16px; font-weight: 500; color: var(--hl-text-2); }
-.stat-value { font-size: 16px; line-height: 24px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.stat-label, .stat-value { white-space: nowrap; }
+.stat-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 12px; line-height: 16px; font-weight: 500; color: var(--hl-text-2); }
+/* min-width auto + overflow visible: the column is at least as wide as the value. */
+.stat-value { min-width: auto; font-size: 16px; line-height: 24px; font-weight: 500; font-variant-numeric: tabular-nums; }
+/* Free text from upstream has no length bound: it takes its equal share and ellipsizes (full text in title). */
+.stat-value.is-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* Narrow tiles (4 stats in a 260 px tile): a little less gap and a 15 px value
+   size, so four "45d 12h"-wide values still fit. Depends on the tile width
+   only, never on the values, so polling can't change it. */
+@container tile (max-width: 259px) {
+  .stats { column-gap: 6px; }
+  .stats[data-n="4"] .stat-value { font-size: 15px; }
+}
 .stat-value.is-missing { color: var(--hl-text-2); }
 /* label row then value row, column by column */
 .stats[data-n] .stat-label { grid-row: 1; }

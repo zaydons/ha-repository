@@ -29,24 +29,27 @@ function nf(locale, opts) {
 
 /**
  * Plain numbers: up to 2 decimals below 10 000 (TrueNAS load "0.42"),
- * compact above ("41.2K").
+ * compact with 3 significant digits above ("41.2K", "412K", "1.05M"), so a
+ * stat value stays at most 5-6 characters and fits its cell (F-2).
  * @param {number} n @param {string} [locale]
  */
 export function formatNumber(n, locale = defaultLocale()) {
-  if (Math.abs(n) >= 10_000) return nf(locale, { notation: "compact", maximumFractionDigits: 1 }).format(n);
+  if (Math.abs(n) >= 10_000) return nf(locale, { notation: "compact", maximumSignificantDigits: 3 }).format(n);
   return nf(locale, { maximumFractionDigits: 2 }).format(n);
 }
 
 const BYTE_UNITS = ["byte", "kilobyte", "megabyte", "gigabyte", "terabyte", "petabyte"];
 
 /**
- * Bytes, base 1024, locale unit labels ("6.1 GB").
+ * Bytes, base 1024, locale unit labels ("6.1 GB"). At most 3 significant
+ * digits: from 1000 of a unit it moves to the next ("1000 MB" → "1 GB"), so
+ * the number never has 4 digits.
  * @param {number} n @param {string} [locale] @param {boolean} [perSecond]
  */
 export function formatBytes(n, locale = defaultLocale(), perSecond = false) {
   let v = Math.abs(n);
   let i = 0;
-  while (v >= 1024 && i < BYTE_UNITS.length - 1) {
+  while (Math.round(v) >= 1000 && i < BYTE_UNITS.length - 1) {
     v /= 1024;
     i++;
   }
@@ -59,14 +62,21 @@ export function formatBytes(n, locale = defaultLocale(), perSecond = false) {
 }
 
 /**
- * Seconds to a short duration: "33d 8h", "3h 20m", "12m", "45s".
+ * Seconds to a short duration with at most the two most significant units:
+ * "1y 35d", "33d 8h", "3h 20m", "12m", "45s". A year is 365 days.
  * @param {number} seconds @param {string} [locale]
  */
 export function formatDuration(seconds, locale = defaultLocale()) {
   const s = Math.max(0, Math.floor(seconds));
   const u = (/** @type {string} */ unit, /** @type {number} */ v) =>
     nf(locale, { style: "unit", unit, unitDisplay: "narrow" }).format(v);
-  const d = Math.floor(s / 86400);
+  const days = Math.floor(s / 86400);
+  const y = Math.floor(days / 365);
+  if (y > 0) {
+    const yd = days % 365;
+    return yd > 0 ? `${u("year", y)} ${u("day", yd)}` : u("year", y);
+  }
+  const d = days;
   const h = Math.floor((s % 86400) / 3600);
   const m = Math.floor((s % 3600) / 60);
   if (d > 0) return h > 0 ? `${u("day", d)} ${u("hour", h)}` : u("day", d);

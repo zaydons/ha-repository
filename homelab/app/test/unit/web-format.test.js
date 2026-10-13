@@ -26,6 +26,47 @@ test("durations are short and drop zero parts", () => {
   assert.equal(formatDuration(-5, L), "0s");
 });
 
+test("F-2: large numbers compact to 3 significant digits", () => {
+  assert.equal(formatNumber(9_876, L), "9,876");
+  assert.equal(formatNumber(10_000, L), "10K");
+  assert.equal(formatNumber(412_345, L), "412K");
+  assert.equal(formatNumber(99_999, L), "100K");
+  assert.equal(formatNumber(1_047_552, L), "1.05M");
+  assert.equal(formatNumber(-41_234, L), "-41.2K");
+});
+
+test("F-2: bytes never show a 4-digit number; they move to the next unit at 1000", () => {
+  assert.equal(formatBytes(999.4, L), "999 B");
+  assert.equal(formatBytes(999.6, L), "1 kB");
+  assert.equal(formatBytes(999.6 * 1024 ** 2, L), "1 GB", "rounding up to 1000 also moves up");
+  assert.equal(formatBytes(1023 * 1024 ** 2, L), "1 GB");
+  assert.equal(formatBytes(58.2 * 1024 ** 4, L), "58.2 TB");
+  assert.equal(formatBytes(512 * 1024 ** 3, L), "512 GB");
+  assert.equal(formatBytes(2 * 1024 ** 6, L), "2,048 PB", "the top unit can't move up");
+});
+
+test("F-2: durations keep the two most significant units, years from 365 days", () => {
+  assert.equal(formatDuration(45 * 86400 + 12 * 3600 + 59 * 60, L), "45d 12h");
+  assert.equal(formatDuration(365 * 86400, L), "1y");
+  assert.equal(formatDuration(400 * 86400 + 23 * 3600, L), "1y 35d");
+  assert.equal(formatDuration(800 * 86400, L), "2y 70d");
+});
+
+test("F-2: worst-case stat values stay short enough for a 4-column tile", () => {
+  const worst = [
+    formatValue(99_999_999, "number", L),
+    formatValue(9_999.99, "number", L),
+    formatValue(999.4 * 1024 ** 5, "bytes", L),
+    formatValue(99.9 * 1024 ** 3, "bytes", L),
+    formatValue(99 * 86400 + 23 * 3600, "duration", L),
+    formatValue(9_999 * 86400, "duration", L),
+    formatValue(23 * 3600 + 59 * 60, "duration", L),
+    formatValue(99.95, "percent", L),
+  ];
+  for (const v of worst) assert.ok(v.length <= 8, `"${v}" is ${v.length} characters`);
+  assert.ok(formatValue(999.4 * 1024 ** 2, "byterate", L).length <= 9);
+});
+
 test("formatValue: percent, text, strings pass through, missing becomes a dash", () => {
   assert.equal(formatValue(14.8, "percent", L), "14.8%");
   assert.equal(formatValue(42, "text", L), "42");

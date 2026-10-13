@@ -186,6 +186,15 @@ test("widget: ok values, partial values get a dash and tooltip", () => {
   assert.equal(v.countsAsIssue, false);
 });
 
+test("widget: free-text values are flagged so only they may ellipsize (F-2)", () => {
+  const v = widgetView(tile({ widget: widget() }), { state: "ok", values: { wanted: "0:42:10", queued: 1234 } }, ctx());
+  assert.deepEqual(v.cells.map((c) => c.text), [true, false]);
+  const missing = widgetView(tile({ widget: widget() }), { state: "ok", values: { wanted: "", queued: null } }, ctx());
+  assert.deepEqual(missing.cells.map((c) => c.text), [false, false], "a dash is not free text");
+  const loading = widgetView(tile({ widget: widget() }), { state: "loading" }, ctx());
+  assert.deepEqual(loading.cells.map((c) => c.text), [false, false]);
+});
+
 test("widget errors: copy per kind, counted as issues", () => {
   const t = tile({ widget: widget() });
   const msg = (error) => widgetView(t, { state: "error", error }, ctx());

@@ -106,6 +106,9 @@ test("stats box: one label and value slot per field in every state", () => {
   assert.equal(all([loading], (n) => cls(n).includes("skeleton")).length, 3);
   const ok = stats({ state: "ok", values: { a: 1, b: null, c: 1234 } });
   assert.deepEqual(all([ok], (n) => cls(n).startsWith("stat-value")).map((n) => text([n])), ["1", "—", "1,234"]);
+  const textOk = stats({ state: "ok", values: { a: 41_234, b: "0:42:10", c: null } });
+  assert.deepEqual(all([textOk], (n) => cls(n).startsWith("stat-value")).map((n) => cls(n)), ["stat-value", "stat-value is-text", "stat-value is-missing"]);
+  assert.deepEqual(all([textOk], (n) => cls(n).startsWith("stat-value")).map((n) => n.props.title), ["41.2K", "0:42:10", "Not reported by Sonarr"]);
   const err = stats({ state: "error", error: { kind: "auth" } });
   assert.equal(err.props["data-n"], 3, "error keeps the same box");
   assert.match(text([err]), /^Sign-in failed/);

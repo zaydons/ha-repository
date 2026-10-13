@@ -415,7 +415,9 @@ export function errnoText(detail) {
 // ---------------------------------------------------------------------------
 
 /**
- * @typedef {{ label: string, value: string, missing: boolean, title: string }} Cell
+ * `text`: the value is free text from upstream (any length), so it may
+ * ellipsize; formatted numbers are short by construction and never do (F-2).
+ * @typedef {{ label: string, value: string, missing: boolean, title: string, text: boolean }} Cell
  * @typedef {{ kind: "none" | "unsupported" | "loading" | "ok" | "stale" | "error" | "muted",
  *   cells: Cell[], message: string, detail: string, staleText: string, staleTitle: string,
  *   countsAsIssue: boolean, sr: string }} WidgetView
@@ -477,7 +479,7 @@ export function widgetView(tile, res, ctx) {
     return {
       ...base,
       kind: "loading",
-      cells: w.fields.map((f) => ({ label: f.label, value: "", missing: false, title: "" })),
+      cells: w.fields.map((f) => ({ label: f.label, value: "", missing: false, title: "", text: false })),
       sr: `Loading ${tile.name} stats`,
     };
   }
@@ -491,6 +493,7 @@ export function widgetView(tile, res, ctx) {
         value: missing ? DASH : formatValue(v, f.format, ctx.locale),
         missing,
         title: missing ? `Not reported by ${tile.name}` : "",
+        text: !missing && typeof v === "string",
       };
     });
   /** @param {Cell[]} cells */
