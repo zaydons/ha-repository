@@ -13,7 +13,7 @@ What makes it different from the Homepage app in this repository:
 ## Contents
 
 - [Install](#install)
-- [Getting started](#getting-started)
+- [Setup](#setup)
 - [Migrating from Homepage](#migrating-from-homepage)
 - [Configuration files](#configuration-files)
 - [services.yaml](#servicesyaml)
@@ -34,21 +34,19 @@ What makes it different from the Homepage app in this repository:
 Requirements:
 
 - A Home Assistant installation with the Supervisor (Home Assistant OS or Supervised), on **amd64** or **aarch64** (64-bit ARM, for example a Raspberry Pi 4 or 5 running the 64-bit OS). 32-bit systems are not supported.
-- A recent Supervisor (2026.07 or newer). Supervisor updates itself, so this is normally already the case.
-<!-- TODO(PM): confirm the minimum Supervisor version once QA has installed on a real Supervisor (design §8.3: app_config needs >= 2026.07). -->
+- A recent Supervisor (2026.07 or newer). Older Supervisors refuse to install the app. Supervisor updates itself, so this is normally already the case.
 - Internet access from Home Assistant while installing and updating. The app is built on your machine: the build downloads the Node.js base image from Docker Hub and packages from the npm registry (registry.npmjs.org).
 
 Steps:
 
-1. Add this repository to Home Assistant. Use the "Add repository" button in the [repository README](https://github.com/zaydons/ha-repository), or add `https://github.com/zaydons/ha-repository` by hand in the app store's **Repositories** menu.
-   <!-- TODO(PM): verify the exact menu names in the current HA UI (Settings > Apps > App store > ⋮ > Repositories?). -->
-2. Find **Homelab Dashboard** in the app store and select **Install**. The first install takes a few minutes, longer on a Raspberry Pi, because Home Assistant builds the image locally. Updates rebuild it the same way.
+1. Add this repository to Home Assistant. Use the "Add repository" button in the [repository README](https://github.com/zaydons/ha-repository), or add it by hand: go to **Settings > Apps** and select **Install app**. In the top-right corner, select the three dots menu, select **Repositories**, and add `https://github.com/zaydons/ha-repository`.
+2. Back on the **Install app** page, find **Homelab Dashboard** and select it, then select **Install**. The first install takes a few minutes, longer on a Raspberry Pi, because Home Assistant builds the image locally. Updates rebuild it the same way.
 3. Select **Start**.
-4. Open **Homelab** in the sidebar. On first start the app creates a sample `services.yaml` and `settings.yaml` in its config folder and shows a welcome card that tells you where that folder is.
+4. Open **Homelab** in the sidebar. The panel is only shown to Home Assistant administrators. On first start the app creates a sample `services.yaml` and `settings.yaml` in its config folder and shows a welcome card that tells you where that folder is.
 
 If the build fails, check that Home Assistant can reach Docker Hub and registry.npmjs.org, then try again. See [Troubleshooting](#troubleshooting).
 
-## Getting started
+## Setup
 
 The dashboard is configured with YAML files in the app's config folder:
 
@@ -56,18 +54,16 @@ The dashboard is configured with YAML files in the app's config folder:
 /addon_configs/<id>_homelab/
 ```
 
-`<id>` is a short code for the repository the app was installed from (for example `a1b2c3d4_homelab`). The welcome card and the error messages show the exact path for your install. Depending on your Home Assistant version and the tool you use, the same folder may appear as **`app_configs`** instead of `addon_configs`. It's the same folder.
+`<id>` is a short code for the repository the app was installed from (for example `a1b2c3d4_homelab`). The welcome card and the error messages show the exact path for your install. Current versions of the editing apps show this folder as **`app_configs`** (older versions: `addon_configs`). It's the same folder.
 
 You can edit the files with any app that can reach that folder:
 
 | Tool | Where to find the folder |
 |---|---|
-| **Studio Code Server** | `/addon_configs/<id>_homelab/` in the file tree |
-| **File editor** | `/addon_configs/<id>_homelab/`. File editor only shows your Home Assistant config folder by default; turn off its **Enforce basepath** option to browse other folders. |
-| **Samba share** | the `addon_configs` share, then the `<id>_homelab` folder |
-| **Terminal & SSH** | `/addon_configs/<id>_homelab/` |
-
-<!-- TODO(PM): verify on a current HA install that File editor needs "Enforce basepath" off to reach /addon_configs, and whether Samba/SSH now show "app_configs". -->
+| **Studio Code Server** | `/app_configs/<id>_homelab/` in the file tree (older versions: `/addon_configs/<id>_homelab/`) |
+| **File editor** | `/app_configs/<id>_homelab/` (older versions: `/addon_configs/…`). File editor only shows your Home Assistant config folder by default: turn off its **Enforce basepath** option (it's on by default) to browse other folders. |
+| **Samba share** | the `app_configs` share (or the older `addon_configs` share, which points at the same folder), then the `<id>_homelab` folder |
+| **Terminal & SSH** | `/app_configs/<id>_homelab/` (older versions: `/addon_configs/<id>_homelab/`) |
 
 Edit `services.yaml`, save, and the open panel updates within about 5 seconds. You don't need to restart the app. If the file has a mistake, the dashboard keeps showing the last working version and tells you the file and line to fix (see [Fixing config errors](#fixing-config-errors)).
 
@@ -108,15 +104,17 @@ Your Homepage files work as they are. The app reads the same `services.yaml` lay
    | `/addon_configs/<id>_homepage/services.yaml` | `/addon_configs/<id>_homelab/services.yaml` |
    | `/addon_configs/<id>_homepage/settings.yaml` | `/addon_configs/<id>_homelab/settings.yaml` |
 
-   `<id>` is the same 8-character code in both folder names, because both apps come from this repository. The Homelab panel's welcome card shows the exact folder for your install. Remember that some tools show `addon_configs` as `app_configs`.
+   `<id>` is the same 8-character code in both folder names, because both apps come from this repository. The Homelab panel's welcome card shows the exact folder for your install. Current editing apps show `addon_configs` as `app_configs`; it's the same folder (see [Setup](#setup)).
 
    - **Studio Code Server or File editor:** open each file in the `_homepage` folder, copy all of its text, and paste it over the file of the same name in the `_homelab` folder.
-   - **Samba share:** open the `addon_configs` share and copy the two files from the `_homepage` folder to the `_homelab` folder, replacing the existing files.
+   - **Samba share:** open the `app_configs` (or `addon_configs`) share and copy the two files from the `_homepage` folder to the `_homelab` folder, replacing the existing files.
    - **Terminal & SSH:**
 
      ```sh
-     cp /addon_configs/<id>_homepage/services.yaml /addon_configs/<id>_homepage/settings.yaml /addon_configs/<id>_homelab/
+     cp /app_configs/<id>_homepage/services.yaml /app_configs/<id>_homepage/settings.yaml /app_configs/<id>_homelab/
      ```
+
+     On older versions of the Terminal & SSH app, use `/addon_configs/` instead of `/app_configs/`.
 
 3. Open the **Homelab** panel. It picks up the new files within a few seconds.
 4. Select **Show all problems** in the panel if it appears. It lists everything the app ignored or didn't understand, with the file and line. Most entries are info notes about Homepage features this app doesn't have yet. See [Limitations](#limitations).
@@ -127,7 +125,7 @@ Good to know:
 - **Only copy `services.yaml` and `settings.yaml`.** If you copy `bookmarks.yaml`, `widgets.yaml`, `docker.yaml`, `kubernetes.yaml`, `custom.css` or `custom.js` too, they're listed once as "not supported" and otherwise ignored.
 - **API keys written directly in `services.yaml` keep working.** You can move them to `secrets.yaml` later (see [Secrets](#secrets)).
 - **Homepage `{{HOMEPAGE_VAR_...}}` placeholders** are looked up in `secrets.yaml`, because apps in Home Assistant don't get your environment variables. If your `services.yaml` uses them (for example because it came from a Homepage install outside Home Assistant), add the values to `secrets.yaml`. See [Secrets](#secrets). `{{HOMEPAGE_FILE_...}}` isn't supported; put the value in `secrets.yaml` instead.
-- **Local icons:** if a tile uses an icon such as `/icons/myapp.png`, put `myapp.png` in an `icons` folder inside the Homelab Dashboard config folder. See [Icons](#icons).
+- **Local icons:** if a tile uses an icon such as `/icons/myapp.png`, put `myapp.png` in a `custom-icons` folder inside the Homelab Dashboard config folder. See [Icons](#icons).
 - **Widgets this app doesn't support** turn into plain tiles: the link and status still work, and the stats area says "The "<type>" widget isn't supported yet." See [Supported widgets](#supported-widgets).
 - **Self-signed HTTPS** keeps working, as in Homepage: certificate checks are off by default. See [HTTPS and certificate checks (TLS)](#https-and-certificate-checks-tls).
 
@@ -140,12 +138,12 @@ Everything lives in the app's config folder, `/addon_configs/<id>_homelab/`:
 | `services.yaml` | yes | Your groups and tiles. Homepage format. A sample is created on first start. |
 | `settings.yaml` | no | Page title, group layout and a few app settings. A sample is created on first start. |
 | `secrets.yaml` | no | API keys and passwords, referenced from the other files. See [Secrets](#secrets). |
-| `icons/` | no | Your own icon images. See [Icons](#icons). |
+| `custom-icons/` | no | Your own icon images. See [Icons](#icons). |
 | `ca.pem` | no | Extra certificate authorities to trust when certificate checks are on. See [TLS](#https-and-certificate-checks-tls). |
 
 The app never changes your files. It only creates the two samples when they don't exist yet, and it never overwrites them.
 
-Changes to `services.yaml`, `settings.yaml` and `secrets.yaml` apply within about 5 seconds, without a restart. New files in `icons/` are used the next time the panel asks for them.
+Changes to `services.yaml`, `settings.yaml` and `secrets.yaml` apply within about 5 seconds, without a restart. New files in `custom-icons/` are used the next time the panel asks for them.
 
 ## services.yaml
 
@@ -247,7 +245,7 @@ Keys every widget accepts:
 | `url` | Base URL of the app, as you'd open it from Home Assistant's network. Keep any sub-path (for example `http://192.168.1.20:8080/sonarr`). |
 | `fields` | List of field names to show, in order. Up to 4 are shown; unknown names give a warning. |
 | `hideErrors` | `true` shows a muted "—" instead of an error message when the widget can't load. |
-| `tlsVerify` | `true` or `false` for this widget only, overriding the `settings.yaml` value. |
+| `tlsVerify` | `true` or `false` for this widget's requests only, overriding the `settings.yaml` value. It doesn't affect the tile's `siteMonitor` check, which always uses the `settings.yaml` value. |
 | `headers` | Extra HTTP headers to send, as a map. |
 
 Notes per widget:
@@ -259,11 +257,11 @@ Notes per widget:
   - "Nothing playing" when nothing is.
 
   The second line is the series name for an episode, the year for a movie, or the artist and album for music. `showEpisodeNumber: true` adds the episode number (for example `S02E05`). User names are shown only with `enableUser: true`, as in Homepage. `expandOneStreamToTwoRows` is accepted and has no effect, because every session already takes two lines. There's no artwork. Media controls (`enableMediaControl`) aren't supported, because the dashboard is read-only; the key gives an info note under **Show all problems**.
-  <!-- TODO(PM): confirm the enableBlocks default against WS1/WS4a. Homepage defaults it to false (list only); ux.md §14.8 only says "true shows the stats row". If ours defaults to true, say so here. -->
+
+  Without `enableBlocks: true` the tile shows only the Now playing list, as in Homepage.
 - **Plex:** updates every 60 seconds, because counting library items takes a few requests.
 - **SABnzbd:** its API only accepts the key in the URL. The app removes it from logs and error messages.
-- **TrueNAS:** use `version: 2` on TrueNAS 25.04 and newer; TrueNAS 26.04 removed the REST API that `version: 1` uses. With `version: 2` and an API key, the app always connects over secure WebSocket (`wss://`), because TrueNAS refuses API keys over unencrypted connections.
-  <!-- TODO(PM): confirm what happens when url is http:// with version 2 + key (upgraded to wss on port 443, or an error?). -->
+- **TrueNAS:** use `version: 2` on TrueNAS 25.04 and newer; TrueNAS 26.04 removed the REST API that `version: 1` uses. With `version: 2` and an API key, the app always connects over secure WebSocket (`wss://`), because TrueNAS refuses API keys over unencrypted connections. If the `url` starts with `http://`, the app still uses `wss://` on the same host (port 443 unless you give a port).
 
 Example with a chosen field order:
 
@@ -348,7 +346,7 @@ If a secret is missing, only the tile that uses it shows an error. The rest of t
 
 - **Never to the browser.** The app makes every request to your services itself. The panel only receives names, links, icons and the results (status, numbers). Widget settings, check URLs and keys are never sent to it.
 - **Never in the log or error messages.** Known secret values, and URL parameters such as `apikey` or `token`, are replaced with `••••` at every log level, including `debug`. Config error excerpts hide values of keys like `key`, `token` and `password`.
-- **In your Home Assistant backups.** Backups include the app's config folder and its private data, which hold your keys. Keep backup encryption turned on, as you would for Home Assistant's own `secrets.yaml`.
+- **In your Home Assistant backups.** Backups include the app's config folder and its private data, which hold your API keys and passwords. Use encrypted backups (Home Assistant's default, with your backup encryption key) and keep the key safe, as you would for Home Assistant's own `secrets.yaml`. Be careful with unencrypted backup copies or downloads.
 - The app keeps a copy of the last working config, keys included, in its private `/data` folder so the dashboard survives a broken edit across restarts. Only the app can read it.
 
 ## HTTPS and certificate checks (TLS)
@@ -366,7 +364,7 @@ TLS verification is off for widget/status requests (settings.yaml tlsVerify)
 tlsVerify: true
 ```
 
-or per widget:
+or per widget (this covers the widget's requests only, not the tile's `siteMonitor` check):
 
 ```yaml
 widget:
@@ -376,11 +374,9 @@ widget:
   tlsVerify: true
 ```
 
-With checking on, the app trusts the usual public certificate authorities. If your services use certificates from your own CA (for example a home CA or a reverse proxy's internal CA), put that CA's certificate in PEM format in the config folder as `ca.pem`. It's trusted in addition to the public ones.
+With checking on, the app trusts the usual public certificate authorities. If your services use certificates from your own CA (for example a home CA or a reverse proxy's internal CA), put that CA's certificate in PEM format in the config folder as `ca.pem`. It's trusted in addition to the public ones. Changes to `ca.pem` apply within about 5 seconds, without a restart.
 
-With checking on, a bad certificate shows the service as **Down** with a TLS error. Either add the CA to `ca.pem` or set `tlsVerify: false` for that widget.
-
-<!-- TODO(PM): confirm whether a per-widget tlsVerify also applies to that tile's siteMonitor check, or only the global setting does; and whether ca.pem changes apply without a restart. -->
+Status checks (`siteMonitor`) always use the `tlsVerify` value in `settings.yaml`; a widget's own `tlsVerify` doesn't change them. So with checking on, a bad certificate shows the service as **Down** with a TLS error, and the fix is to add the CA to `ca.pem` or set `tlsVerify: false` in `settings.yaml`. A widget that fails with a certificate error can also be fixed with `tlsVerify: false` on that widget, but that doesn't change the tile's status.
 
 ## Icons
 
@@ -392,7 +388,7 @@ The `icon` key uses Homepage's names:
 | `si-<name>`, e.g. `si-jellyfin` | Simple Icons, built into the app. `si-<name>-#rrggbb` also works. | yes |
 | `<name>`, `<name>.png`, `<name>.svg`, `<name>.webp`, e.g. `sonarr.png` | [dashboard-icons](https://github.com/homarr-labs/dashboard-icons). The app downloads each icon once from cdn.jsdelivr.net and keeps it. No extension means `.png`. | after the first download |
 | `sh-<name>` (optionally with `.png`, `.svg` or `.webp`) | [selfh.st icons](https://github.com/selfhst/icons), downloaded and kept the same way | after the first download |
-| `/icons/<file>`, or any file name that exists in your `icons/` folder | Your own image in `/addon_configs/<id>_homelab/icons/`. Your folder wins over dashboard-icons when both have the same name. | yes |
+| `/icons/<file>`, or any file name that exists in your `custom-icons/` folder | Your own image in `/addon_configs/<id>_homelab/custom-icons/`. `/icons/<file>` is Homepage's syntax and keeps working unchanged. Your folder wins over dashboard-icons when both have the same name. | yes |
 | `https://...` | Loaded by your browser directly from that address | depends on that address |
 
 If an icon can't be found or downloaded, the tile shows the first letter of the service name instead.
@@ -402,7 +398,8 @@ Notes:
 - The app downloads icons itself, so your browser never contacts the icon CDN. Downloaded icons are kept in the app's private storage (up to 50 MB) and are left out of backups.
 - A name that doesn't exist is remembered for 24 hours before the app tries again; a failed download is retried after about 10 minutes.
 - Icon names must be lower case: letters, digits, `.`, `_` and `-`.
-- A full `https://` icon URL that points at your home network won't load when you use the dashboard away from home. Put the file in `icons/` instead.
+- The folder is called `custom-icons`, not `icons`, because Home Assistant's Samba share hides any file or folder whose name matches `icon?` by default (so `icons` would be invisible over Samba).
+- A full `https://` icon URL that points at your home network won't load when you use the dashboard away from home. Put the file in `custom-icons/` instead.
 
 ## Access and remote use
 
@@ -421,8 +418,7 @@ Set these on the app's **Configuration** tab in Home Assistant. Everything else 
 | `theme` | `auto`, `light`, `dark` | `auto` | `auto` follows your Home Assistant theme, including custom themes and live changes. `light` or `dark` forces that look. |
 | `log_level` | `debug`, `info`, `warning`, `error` | `info` | How much the app writes to its log. Use `debug` only while troubleshooting. Secrets are hidden at every level. |
 
-Restart the app after changing an option.
-<!-- TODO(PM): confirm options need a restart (they are read from /data/options.json at start; Supervisor normally restarts on save?). -->
+Restart the app after changing an option. Options are read once at start, and saving them doesn't restart the app.
 
 ## Fixing config errors
 
@@ -484,8 +480,6 @@ Open the app's **Log** tab in Home Assistant. Useful lines:
 
 For more detail, set `log_level` to `debug`, restart the app and reproduce the problem. Set it back to `info` afterwards. Secrets are hidden at every level, but the log does contain your service names and addresses, so check it before you share it.
 
-<!-- TODO(PM): confirm the final log line wording against the WS1/WS2 code. -->
-
 ### Other problems
 
 - **Install or update fails during the build:** Home Assistant must reach Docker Hub and registry.npmjs.org while building. Check your internet connection and DNS (and any ad-blocker on your network), then try again.
@@ -512,7 +506,8 @@ Version 0.1 covers service tiles, status checks and the widgets listed above. No
 ## Security and privacy
 
 - **No open ports.** The app is only reachable through Home Assistant ingress, and it refuses connections from anywhere except Home Assistant's Supervisor.
-- **Admin-only panel**, behind your Home Assistant login.
+- **Admin-only panel**, behind your Home Assistant login. The app shows up as **Homelab** in the sidebar for administrators only.
+- **Backups contain your keys.** Keep Home Assistant backups encrypted; see [Secrets](#secrets).
 - **Runs as a non-root user**, with no extra privileges, host network or device access.
 - **Secrets stay on the server**; see [Secrets](#secrets).
 - **The app only contacts** the addresses in your config (your services) and, for icons, cdn.jsdelivr.net. It sends nothing else anywhere: no telemetry.

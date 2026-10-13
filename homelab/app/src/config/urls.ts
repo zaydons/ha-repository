@@ -80,7 +80,7 @@ export function checkPingHost(text: string): string | null {
 
 /**
  * Homepage icon strings we pass to the icon service: a bundled/CDN name
- * ("mdi-x", "si-x-#ff0000", "sh-x.png", "x.svg"), a local "/icons/..." path,
+ * ("mdi-x", "si-x-#ff0000", "sh-x.png", "x.svg"), a local "/icons/..." path (read from the custom-icons folder),
  * or an absolute http(s) URL (checked separately).
  */
 export const ICON_NAME_RE = /^(?:\/icons\/(?:[A-Za-z0-9_][A-Za-z0-9._-]{0,63}\/){0,3})?[A-Za-z0-9_][A-Za-z0-9._-]{0,127}(?:-#[0-9A-Fa-f]{3,8})?$/;

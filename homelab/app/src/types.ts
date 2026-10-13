@@ -335,7 +335,7 @@ export interface IconResponse {
   cacheControl?: string;
 }
 
-/** WS6: `createIconService(ctx)` in src/icons/index.ts. */
+/** WS6: `createIconService(ctx)` in src/iconsvc/index.ts. */
 export interface IconService {
   /** null = 404. `name` already passed the router's basic name check. */
   get(set: IconSet, name: string, query: URLSearchParams): Promise<IconResponse | null>;
