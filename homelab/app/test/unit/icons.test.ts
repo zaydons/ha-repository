@@ -80,7 +80,7 @@ afterEach(async () => {
 
 function service(cdn: FakeCdn, log: Logger = capture().log, extra: IconServiceOptions = {}) {
   const ctx: BootContext = {
-    options: { theme: "auto", log_level: "info" },
+    options: { log_level: "info" },
     paths: { configDir, dataDir, sampleDir: join(APP, "sample"), webDir: join(APP, "web") },
     configPathDisplay: "/addon_configs/abcd1234_homelab/",
     log,
@@ -508,7 +508,7 @@ describe("icons: HTTP route", () => {
   test("headers: allowlisted type, ICON_CSP, nosniff; traversal 404s", async () => {
     await writeFile(join(configDir, "custom-icons", "nas.svg"), SVG);
     const ctx: BootContext = {
-      options: { theme: "auto", log_level: "info" },
+      options: { log_level: "info" },
       paths: { configDir, dataDir, sampleDir: join(APP, "sample"), webDir: join(APP, "web") },
       configPathDisplay: "/addon_configs/abcd1234_homelab/",
       log: capture().log,

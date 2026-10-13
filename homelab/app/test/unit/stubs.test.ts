@@ -11,7 +11,7 @@ function tiles(groups: PublicGroup[]): PublicTile[] {
 }
 
 test("fixtures: state keys match tiles, checks and widgets", () => {
-  const cfg = fixtureConfig("ok", 1, "/addon_configs/x_homelab/", "auto", "2026-10-12T12:00:00.000Z");
+  const cfg = fixtureConfig("ok", 1, "/addon_configs/x_homelab/", "2026-10-12T12:00:00.000Z");
   const state = fixtureState(new Date("2026-10-12T12:00:00Z"), false);
   const all = tiles(cfg.groups);
   const ids = new Set(all.map((t) => t.id));
@@ -34,9 +34,9 @@ test("fixtures: state keys match tiles, checks and widgets", () => {
 
 test("fixtures: every scenario is a well-formed PublicConfig", () => {
   for (const s of STUB_SCENARIOS) {
-    const cfg = fixtureConfig(s, 3, "/addon_configs/x_homelab/", "dark", "2026-10-12T12:00:00.000Z");
+    const cfg = fixtureConfig(s, 3, "/addon_configs/x_homelab/", "2026-10-12T12:00:00.000Z");
     assert.equal(cfg.rev, 3);
-    assert.equal(cfg.theme, "dark");
+    assert.ok(!("theme" in cfg), "no theme field in api/config");
     assert.ok(Array.isArray(cfg.groups) && Array.isArray(cfg.problems));
     if (s === "fatal") assert.ok(cfg.error && cfg.groups.length === 0 && !cfg.usingLastGood);
     if (s === "banner") assert.ok(cfg.error && cfg.groups.length > 0 && cfg.usingLastGood);

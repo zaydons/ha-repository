@@ -83,7 +83,7 @@ interface Harness {
 }
 
 const ctx: BootContext = {
-  options: { theme: "auto", log_level: "debug" },
+  options: { log_level: "debug" },
   paths: { configDir: "/nonexistent-config", dataDir: "/nonexistent-data", sampleDir: "/x", webDir: "/y" },
   configPathDisplay: "/addon_configs/x/",
   log: createLogger(),

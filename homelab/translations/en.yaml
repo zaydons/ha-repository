@@ -1,9 +1,4 @@
 configuration:
-  theme:
-    name: Theme
-    description: >-
-      auto follows your Home Assistant theme. light or dark forces that look
-      regardless of the Home Assistant theme.
   log_level:
     name: Log level
     description: >-

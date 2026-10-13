@@ -218,7 +218,7 @@ layout:
     initiallyCollapsed: true
 ```
 
-Homepage's look-and-feel settings (`theme`, `color`, `background`, `cardBlur`, `headerStyle`, `favicon`, `language`, `quicklaunch`, `useEqualHeights`, `fullWidth`, `layout.<Group>.style`/`icon`/`header`/`tab`, and so on) are accepted silently and have no effect. The page follows your Home Assistant theme instead; see [App options](#app-options). `providers` gives an info note: put the key in the widget or in `secrets.yaml` instead.
+Homepage's look-and-feel settings (`theme`, `color`, `background`, `cardBlur`, `headerStyle`, `favicon`, `language`, `quicklaunch`, `useEqualHeights`, `fullWidth`, `layout.<Group>.style`/`icon`/`header`/`tab`, and so on) are accepted silently and have no effect. The page follows your Home Assistant theme instead. `providers` gives an info note: put the key in the widget or in `secrets.yaml` instead.
 
 ## Supported widgets
 
@@ -411,14 +411,15 @@ Notes:
 
 ## App options
 
-Set these on the app's **Configuration** tab in Home Assistant. Everything else lives in the YAML files.
+Set this on the app's **Configuration** tab in Home Assistant. Everything else lives in the YAML files.
 
 | Option | Values | Default | What it does |
 |---|---|---|---|
-| `theme` | `auto`, `light`, `dark` | `auto` | `auto` follows your Home Assistant theme, including custom themes and live changes. `light` or `dark` forces that look. |
 | `log_level` | `debug`, `info`, `warning`, `error` | `info` | How much the app writes to its log. Use `debug` only while troubleshooting. Secrets are hidden at every level. |
 
 Restart the app after changing an option. Options are read once at start, and saving them doesn't restart the app.
+
+There's no theme option. The dashboard always follows your Home Assistant theme, including custom themes and live changes. If you open it outside Home Assistant, it follows your device's light or dark setting.
 
 ## Fixing config errors
 

@@ -110,7 +110,6 @@ function App() {
   const [toast, setToast] = useState(/** @type {{ text: string, showProblems: boolean } | null} */ (null));
   const [spoken, setSpoken] = useState("");
   const poller = useRef(/** @type {ReturnType<typeof createPoller> | null} */ (null));
-  const theme = useRef(/** @type {ReturnType<typeof startThemeBridge> | null} */ (null));
   const opener = useRef(/** @type {Element | null} */ (null));
   const locale = defaultLocale();
 
@@ -191,14 +190,12 @@ function App() {
   }, [onHealthChange, announce]);
 
   const config = ps.config;
-  // The theme bridge starts once the app option is known, so a forced light/dark
-  // theme doesn't flash the HA theme first (review F12). Until then styles.css
+  // The theme bridge always follows HA (prefers-color-scheme outside HA), so it
+  // starts on mount without waiting for api/config. Until it runs, styles.css
   // follows prefers-color-scheme.
   useEffect(() => {
-    if (!config) return;
-    if (theme.current) theme.current.setOption(config.theme);
-    else theme.current = startThemeBridge(config.theme);
-  }, [config?.theme]);
+    startThemeBridge();
+  }, []);
 
   useEffect(() => {
     if (!toast) return undefined;

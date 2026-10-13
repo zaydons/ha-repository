@@ -22,7 +22,7 @@ export function parseScenario(value: string | undefined): StubScenario {
 
 export function createStubConfigService(ctx: BootContext, scenario: StubScenario): ConfigService {
   const loadedAt = new Date().toISOString();
-  const cfg: PublicConfig = fixtureConfig(scenario, 1, ctx.configPathDisplay, ctx.options.theme, loadedAt);
+  const cfg: PublicConfig = fixtureConfig(scenario, 1, ctx.configPathDisplay, loadedAt);
   return {
     async start() {
       ctx.log.warn(`Serving stub fixture data (scenario "${scenario}"); the config engine is not wired in yet`);

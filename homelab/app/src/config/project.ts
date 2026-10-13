@@ -1,13 +1,12 @@
 // Public projection (design §4.8, threat model R6): what api/config returns.
 // No widget blocks, no check URLs, no credentials. As a backstop, every string
 // is scrubbed of secret-position values (e.g. a key pasted into a description).
-import type { Problem, PublicConfig, PublicGroup, PublicTile, Settings, ThemeOption } from "../types.ts";
+import type { Problem, PublicConfig, PublicGroup, PublicTile, Settings } from "../types.ts";
 import { redact } from "../redact.ts";
 import { checkUrl, sanitiseIconRef, withoutUserinfo } from "./urls.ts";
 
 export interface ProjectionInput {
   rev: number;
-  theme: ThemeOption;
   configPath: string;
   sampleInUse: boolean;
   loadedAt: string;
@@ -68,7 +67,6 @@ export function project(input: ProjectionInput): PublicConfig {
   const cfg: PublicConfig = {
     rev: input.rev,
     title: scrub(s.title),
-    theme: input.theme,
     configPath: input.configPath,
     sampleInUse: input.sampleInUse,
     loadedAt: input.loadedAt,

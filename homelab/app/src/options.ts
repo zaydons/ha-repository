@@ -2,14 +2,17 @@
 import { readFile } from "node:fs/promises";
 import { hostname } from "node:os";
 import { isAbsolute, join } from "node:path";
-import type { AppOptions, Logger, LogLevel, ThemeOption } from "./types.ts";
+import type { AppOptions, Logger, LogLevel } from "./types.ts";
 
-export const DEFAULT_OPTIONS: Readonly<AppOptions> = { theme: "auto", log_level: "info" };
+export const DEFAULT_OPTIONS: Readonly<AppOptions> = { log_level: "info" };
 
-const THEMES: readonly ThemeOption[] = ["auto", "light", "dark"];
 const LEVELS: readonly LogLevel[] = ["debug", "info", "warning", "error"];
 
-/** Validate an options object; unknown or invalid values fall back to defaults. */
+/**
+ * Validate an options object; invalid values fall back to defaults. Unknown keys
+ * are ignored without a warning: an install that predates an option's removal
+ * (e.g. the old `theme` option) may still have it stored by the Supervisor.
+ */
 export function parseOptions(raw: unknown): { options: AppOptions; invalid: string[] } {
   const options: AppOptions = { ...DEFAULT_OPTIONS };
   const invalid: string[] = [];
@@ -17,10 +20,6 @@ export function parseOptions(raw: unknown): { options: AppOptions; invalid: stri
     return { options, invalid: raw === undefined ? [] : ["(not an object)"] };
   }
   const o = raw as Record<string, unknown>;
-  if (o.theme !== undefined) {
-    if (THEMES.includes(o.theme as ThemeOption)) options.theme = o.theme as ThemeOption;
-    else invalid.push("theme");
-  }
   if (o.log_level !== undefined) {
     if (LEVELS.includes(o.log_level as LogLevel)) options.log_level = o.log_level as LogLevel;
     else invalid.push("log_level");

@@ -124,7 +124,6 @@ export function createConfigService(
 
   const rebuildPublic = () => {
     const base = {
-      theme: ctx.options.theme,
       configPath: ctx.configPathDisplay,
       usingLastGood: fatal !== null && good !== null,
       hardSecrets: good?.built.hardSecrets ?? [],

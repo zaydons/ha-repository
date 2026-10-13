@@ -301,11 +301,10 @@ const FATAL: Problem = {
   excerpt: { startLine: 13, lines: ["    - Plex:", "       icon: plex.png", "      key: ••••••"], markLine: 14 },
 };
 
-export function fixtureConfig(scenario: StubScenario, rev: number, configPath: string, theme: PublicConfig["theme"], loadedAt: string): PublicConfig {
+export function fixtureConfig(scenario: StubScenario, rev: number, configPath: string, loadedAt: string): PublicConfig {
   const base: PublicConfig = {
     rev,
     title: "Homelab",
-    theme,
     configPath,
     sampleInUse: false,
     loadedAt,

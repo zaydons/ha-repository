@@ -15,7 +15,7 @@ import { DASH, clampPct, clockTime, formatPercent, formatValue, isMissing, parse
 /** @typedef {{ id: string, name: string, description?: string, href?: string, icon: Icon, check: "http" | "ping" | "none", widget?: Widget }} Tile */
 /** @typedef {{ id: string, name: string, columns?: number, collapsed: boolean, groups: Group[], tiles: Tile[] }} Group */
 /** @typedef {{ hideNoCheck: boolean, groupsInitiallyCollapsed: boolean, disableCollapse: boolean, statusIntervalS: number, widgetIntervalS: number }} Settings */
-/** @typedef {{ rev: number, title: string, theme: "auto" | "light" | "dark", configPath: string, sampleInUse: boolean, loadedAt: string, error?: Problem, usingLastGood: boolean, settings: Settings, groups: Group[], problems: Problem[] }} Config */
+/** @typedef {{ rev: number, title: string, configPath: string, sampleInUse: boolean, loadedAt: string, error?: Problem, usingLastGood: boolean, settings: Settings, groups: Group[], problems: Problem[] }} Config */
 /** @typedef {{ state: "up" | "down" | "unknown", kind: "http" | "ping", httpStatus?: number, latencyMs?: number, reason?: string, host?: string, detail?: string, checkedAt?: string, downSince?: string }} Status */
 /** @typedef {{ title?: unknown, subtitle?: unknown, user?: unknown, progressPct?: unknown, paused?: unknown }} NowPlayingItem */
 /** @typedef {{ kind?: string, host?: string, httpStatus?: number, timeoutS?: number, message?: string }} WidgetError */
@@ -227,7 +227,6 @@ export function sanitizeConfig(raw) {
   const cfg = {
     rev: c.rev,
     title: str(c.title, "Homelab") || "Homelab",
-    theme: c.theme === "light" || c.theme === "dark" ? c.theme : "auto",
     configPath: str(c.configPath),
     sampleInUse: c.sampleInUse === true,
     loadedAt: str(c.loadedAt),

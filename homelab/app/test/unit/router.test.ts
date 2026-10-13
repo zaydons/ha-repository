@@ -21,7 +21,7 @@ let clock = new Date("2026-10-12T12:00:00Z");
 
 before(async () => {
   const ctx: BootContext = {
-    options: { theme: "auto", log_level: "info" },
+    options: { log_level: "info" },
     paths: { configDir: "/nonexistent", dataDir: "/nonexistent", sampleDir: join(APP, "sample"), webDir: join(APP, "web") },
     configPathDisplay: "/addon_configs/abcd1234_homelab/",
     log: quiet,

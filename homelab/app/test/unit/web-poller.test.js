@@ -5,7 +5,7 @@ import { FAST_POLL_MS, createPoller } from "../../web/poller.js";
 import { POLL_MS } from "../../web/model.js";
 
 const cfg = (rev, extra = {}) => ({
-  rev, title: "Homelab", theme: "auto", configPath: "", sampleInUse: false, loadedAt: "", usingLastGood: false,
+  rev, title: "Homelab", configPath: "", sampleInUse: false, loadedAt: "", usingLastGood: false,
   settings: { hideNoCheck: false, groupsInitiallyCollapsed: false, disableCollapse: false, statusIntervalS: 30, widgetIntervalS: 30 },
   groups: [{ id: "g", name: "G", collapsed: false, groups: [], tiles: [{ id: "t1", name: "NAS", icon: { kind: "letter", letter: "N" }, check: "http" }] }],
   problems: [], ...extra,

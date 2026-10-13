@@ -41,7 +41,7 @@ async function setup(files: Record<string, string> = {}) {
   setLogSink((_lvl, line) => lines.push(line));
   setLogLevel("debug");
   const ctx: BootContext = {
-    options: { theme: "auto", log_level: "debug" },
+    options: { log_level: "debug" },
     paths: { configDir, dataDir, sampleDir: SAMPLE, webDir: "/nonexistent" },
     configPathDisplay: "/addon_configs/test_homelab/",
     log: createLogger(),

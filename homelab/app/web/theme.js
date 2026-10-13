@@ -3,8 +3,8 @@
 // so we READ the active HA theme's CSS variables from the parent document and
 // write our own --hl-* tokens onto our :root with style.setProperty. We never
 // write to, navigate or message the parent (threat model R5).
-// Fallback: prefers-color-scheme with the built-in tokens in styles.css.
-// The app option theme: light|dark forces a token set and skips the bridge.
+// Fallback (no readable HA parent, e.g. opened outside HA): prefers-color-scheme
+// with the built-in tokens in styles.css. There is no option to force a scheme.
 //
 // The colour maths and computeTheme() are pure and unit-tested
 // (test/unit/web-theme.test.js); startThemeBridge() is the browser glue.
@@ -150,14 +150,12 @@ function safeText(v) {
 
 /**
  * Decide the scheme and the --hl-* overrides.
- * @param {"auto" | "light" | "dark"} option  app option (UX §7.1 #3)
  * @param {Record<string, string> | null} haVars  raw values read from the parent (null = not readable)
  * @param {boolean} prefersDark
  * @param {(value: string) => string} [resolve]  turns any CSS colour into rgb(); identity in tests
- * @returns {{ scheme: Scheme, source: "option" | "ha" | "system", vars: Record<string, string> }}
+ * @returns {{ scheme: Scheme, source: "ha" | "system", vars: Record<string, string> }}
  */
-export function computeTheme(option, haVars, prefersDark, resolve = (v) => v) {
-  if (option === "light" || option === "dark") return { scheme: option, source: "option", vars: {} };
+export function computeTheme(haVars, prefersDark, resolve = (v) => v) {
   const color = (/** @type {string | undefined} */ v) => (v ? parseColor(resolve(v)) : null);
   const bgRaw = color(haVars?.["--primary-background-color"]);
   if (!haVars || !bgRaw) return { scheme: prefersDark ? "dark" : "light", source: "system", vars: {} };
@@ -273,19 +271,16 @@ function makeResolver() {
 }
 
 /**
- * Start the bridge. Returns setOption() for when api/config arrives or changes.
- * @param {"auto" | "light" | "dark"} [initial]
+ * Start the bridge. Call once; it keeps following HA (or the system) by itself.
  */
-export function startThemeBridge(initial = "auto") {
+export function startThemeBridge() {
   const root = document.documentElement;
   const media = window.matchMedia("(prefers-color-scheme: dark)");
   const resolve = makeResolver();
-  let option = initial;
   let last = "";
 
   const apply = () => {
-    const parentVars = option === "auto" ? readParentVars() : null;
-    const theme = computeTheme(option, parentVars, media.matches, resolve);
+    const theme = computeTheme(readParentVars(), media.matches, resolve);
     const key = JSON.stringify(theme);
     if (key === last) return;
     last = key;
@@ -327,13 +322,4 @@ export function startThemeBridge(initial = "auto") {
   setInterval(() => {
     if (!document.hidden) apply();
   }, 5000);
-
-  return {
-    /** @param {"auto" | "light" | "dark"} next */
-    setOption(next) {
-      if (next === option) return;
-      option = next;
-      apply();
-    },
-  };
 }

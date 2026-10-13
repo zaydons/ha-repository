@@ -10,6 +10,6 @@ First release (experimental).
 - Widgets: audiobookshelf, immich (v1 and v2), jellyfin (count blocks and Now playing list), lidarr, plex, prowlarr, radarr, sabnzbd, sonarr, truenas (REST v1 and WebSocket v2). Field names match Homepage's.
 - Secrets inline, in `secrets.yaml` with `!secret`, or with Homepage's `{{HOMEPAGE_VAR_*}}` placeholders. Secrets never reach the browser or the log.
 - Config hot reload within about 5 seconds. Errors show the file, line and a redacted excerpt; the last working config stays on screen, including after a restart.
-- Follows the Home Assistant theme, or a forced light or dark theme (`theme` option).
+- Follows the Home Assistant theme, including custom themes and live changes. Opened outside Home Assistant, it follows the system light or dark setting.
 - Icons: Material Design Icons and Simple Icons built in; dashboard-icons and selfh.st icons downloaded once and cached; your own images in a `custom-icons/` folder in the config folder (not `icons/`, which Home Assistant's Samba share hides), used from tiles as `/icons/<file>`.
 - HTTPS certificate checks are off by default, as in Homepage. Turn them on with `tlsVerify: true`.

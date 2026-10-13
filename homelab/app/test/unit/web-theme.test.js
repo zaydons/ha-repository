@@ -34,20 +34,14 @@ test("composite and scheme detection", () => {
   assert.equal(toCss([1, 2, 3, 0.5]), "rgba(1, 2, 3, 0.5)");
 });
 
-test("theme option light/dark overrides HA and the system", () => {
-  const ha = { "--primary-background-color": "#111111" };
-  assert.deepEqual(computeTheme("light", ha, true), { scheme: "light", source: "option", vars: {} });
-  assert.deepEqual(computeTheme("dark", null, false), { scheme: "dark", source: "option", vars: {} });
+test("without a readable parent falls back to prefers-color-scheme", () => {
+  assert.deepEqual(computeTheme(null, true), { scheme: "dark", source: "system", vars: {} });
+  assert.deepEqual(computeTheme(null, false), { scheme: "light", source: "system", vars: {} });
+  assert.equal(computeTheme({ "--primary-background-color": "nonsense" }, true).source, "system");
 });
 
-test("auto without a readable parent falls back to prefers-color-scheme", () => {
-  assert.deepEqual(computeTheme("auto", null, true), { scheme: "dark", source: "system", vars: {} });
-  assert.deepEqual(computeTheme("auto", null, false), { scheme: "light", source: "system", vars: {} });
-  assert.equal(computeTheme("auto", { "--primary-background-color": "nonsense" }, true).source, "system");
-});
-
-test("auto with HA dark theme maps variables and picks the dark set", () => {
-  const t = computeTheme("auto", {
+test("HA dark theme maps variables and picks the dark set", () => {
+  const t = computeTheme({
     "--primary-background-color": "#111111",
     "--card-background-color": "#1c1c1c",
     "--primary-text-color": "#e1e1e1",
@@ -70,7 +64,7 @@ test("auto with HA dark theme maps variables and picks the dark set", () => {
 });
 
 test("light HA theme: low-contrast primary is not used for focus", () => {
-  const t = computeTheme("auto", { "--primary-background-color": "#fafafa", "--card-background-color": "#ffffff", "--primary-text-color": "#212121", "--primary-color": "#03a9f4" }, true);
+  const t = computeTheme({ "--primary-background-color": "#fafafa", "--card-background-color": "#ffffff", "--primary-text-color": "#212121", "--primary-color": "#03a9f4" }, true);
   assert.equal(t.scheme, "light");
   assert.equal(t.vars["--hl-primary"], "rgb(3, 169, 244)");
   assert.equal(t.vars["--hl-focus"], "rgb(33, 33, 33)");
@@ -78,7 +72,7 @@ test("light HA theme: low-contrast primary is not used for focus", () => {
 
 test("contrast guard: status colours that fail on the theme's card fall back to text", () => {
   // A light theme with a mid-green card: the light status greens/reds fail 4.5:1.
-  const t = computeTheme("auto", { "--primary-background-color": "#e8f5e9", "--card-background-color": "#4caf50", "--primary-text-color": "#000000" }, false);
+  const t = computeTheme({ "--primary-background-color": "#e8f5e9", "--card-background-color": "#4caf50", "--primary-text-color": "#000000" }, false);
   assert.equal(t.scheme, "light");
   assert.equal(t.vars["--hl-status-up-text"], "rgb(0, 0, 0)");
   assert.equal(t.vars["--hl-status-up"], "rgb(0, 0, 0)", "icon also below 3:1");
@@ -86,7 +80,7 @@ test("contrast guard: status colours that fail on the theme's card fall back to 
 });
 
 test("translucent card colours are composited; unsafe shadow/font/length values are dropped", () => {
-  const t = computeTheme("auto", {
+  const t = computeTheme({
     "--primary-background-color": "#ffffff",
     "--card-background-color": "rgba(0, 0, 0, 0.5)",
     "--ha-card-box-shadow": "url(https://evil.example/x) 0 0",
@@ -102,7 +96,7 @@ test("translucent card colours are composited; unsafe shadow/font/length values 
 test("delta 4 / M3: status words are checked against the tinted pill, not the card", async () => {
   const { PILL_ALPHA } = await import("../../web/theme.js");
   // Dark theme with a dark red card: "Down" (#ff6b6b) is ~4:1 on its own tint.
-  const t = computeTheme("auto", { "--primary-background-color": "#1a0000", "--card-background-color": "#5a1010", "--primary-text-color": "#ffffff" }, true);
+  const t = computeTheme({ "--primary-background-color": "#1a0000", "--card-background-color": "#5a1010", "--primary-text-color": "#ffffff" }, true);
   assert.equal(t.scheme, "dark");
   const card = parseColor(t.vars["--hl-card"]);
   const down = parseColor("#ff6b6b");
@@ -115,17 +109,17 @@ test("delta 4 / M3: status words are checked against the tinted pill, not the ca
 
 test("delta 4: text colour that also fails on the tint falls back to black or white", () => {
   // Mid-grey text on a mid-green card: neither status green nor the text reaches 4.5:1.
-  const t = computeTheme("auto", { "--primary-background-color": "#f0f0f0", "--card-background-color": "#4caf50", "--primary-text-color": "#666666" }, false);
+  const t = computeTheme({ "--primary-background-color": "#f0f0f0", "--card-background-color": "#4caf50", "--primary-text-color": "#666666" }, false);
   assert.equal(t.vars["--hl-status-up-text"], "rgb(0, 0, 0)");
 });
 
 test("delta 4: low-contrast theme secondary text is stepped toward the text colour", async () => {
   const { ensureContrast } = await import("../../web/theme.js");
-  const t = computeTheme("auto", { "--primary-background-color": "#ffffff", "--card-background-color": "#ffffff", "--primary-text-color": "#212121", "--secondary-text-color": "#aaaaaa" }, false);
+  const t = computeTheme({ "--primary-background-color": "#ffffff", "--card-background-color": "#ffffff", "--primary-text-color": "#212121", "--secondary-text-color": "#aaaaaa" }, false);
   const t2 = parseColor(t.vars["--hl-text-2"]);
   assert.ok(contrast(t2, parseColor("#ffffff")) >= 4.5);
   assert.notEqual(t.vars["--hl-text-2"], "rgb(33, 33, 33)", "a step, not the full text colour");
-  const ok = computeTheme("auto", { "--primary-background-color": "#ffffff", "--secondary-text-color": "#5f6368" }, false);
+  const ok = computeTheme({ "--primary-background-color": "#ffffff", "--secondary-text-color": "#5f6368" }, false);
   assert.equal(ok.vars["--hl-text-2"], "rgb(95, 99, 104)", "passing colours are unchanged");
   assert.deepEqual(ensureContrast([255, 255, 255, 1], [0, 0, 0, 1], [255, 255, 255, 1], 21), [0, 0, 0, 1]);
 });

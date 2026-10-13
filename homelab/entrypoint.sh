@@ -51,7 +51,7 @@ for f in services.yaml settings.yaml secrets.yaml; do
 done
 
 # The Supervisor writes /data/options.json readable by root only, so the node
-# user can't read it. Copy it (it holds only theme/log_level) into a directory
+# user can't read it. Copy it (it holds only log_level) into a directory
 # only root can write, readable by the node group, and tell the app where it
 # is. /data is node-owned, so refuse a symlink there; no node process is
 # running yet, so nothing can swap the file between the check and the copy.

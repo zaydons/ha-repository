@@ -23,7 +23,6 @@ function ok(r: BuildResult): BuiltConfig {
 function projectOf(b: BuiltConfig): PublicConfig {
   return project({
     rev: 1,
-    theme: "auto",
     configPath: "/addon_configs/x_homelab/",
     sampleInUse: false,
     loadedAt: "2026-10-12T00:00:00.000Z",

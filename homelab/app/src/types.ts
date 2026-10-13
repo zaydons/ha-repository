@@ -28,11 +28,8 @@ export interface Logger {
 // Boot context (built by server.ts, handed to every subsystem factory)
 // ---------------------------------------------------------------------------
 
-export type ThemeOption = "auto" | "light" | "dark";
-
 /** App options from /data/options.json (set in the HA UI). Nothing else lives there. */
 export interface AppOptions {
-  theme: ThemeOption;
   log_level: LogLevel;
 }
 
@@ -93,7 +90,6 @@ export interface PublicConfig {
   /** Bumped on every change of the public config, including error-state changes. */
   rev: number;
   title: string;
-  theme: ThemeOption;
   /** e.g. "/addon_configs/a1b2c3d4_homelab/" */
   configPath: string;
   sampleInUse: boolean;

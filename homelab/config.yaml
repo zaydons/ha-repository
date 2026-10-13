@@ -24,8 +24,6 @@ backup_exclude:
   - "icon-cache/*"
   - "icon-cache/*/*"
 options:
-  theme: auto
   log_level: info
 schema:
-  theme: "list(auto|light|dark)"
   log_level: "list(debug|info|warning|error)"

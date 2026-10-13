@@ -45,7 +45,6 @@ function rawConfig(over = {}) {
   return {
     rev: 3,
     title: "Homelab",
-    theme: "auto",
     configPath: "/addon_configs/x_homelab/",
     sampleInUse: false,
     loadedAt: ago(60),
@@ -108,7 +107,7 @@ test("sanitizeConfig keeps good data, drops bad tiles, flattens deep groups, rej
   assert.throws(() => sanitizeConfig({}), /api\/config/);
   assert.throws(() => sanitizeConfig(null), /api\/config/);
   assert.throws(() => sanitizeState({ status: {} }), /api\/state/);
-  assert.equal(sanitizeConfig(rawConfig({ theme: "neon" })).theme, "auto");
+  assert.ok(!("theme" in sanitizeConfig(rawConfig({ theme: "dark" }))), "a stray theme field is dropped");
 });
 
 test("sanitizeConfig caps fields at 4 and defaults unknown formats", () => {

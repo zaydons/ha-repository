@@ -10,8 +10,9 @@ const warnings: string[] = [];
 const log: Logger = { debug() {}, info() {}, warn: (m) => void warnings.push(m), error() {}, child: () => log };
 
 test("parseOptions: valid, invalid and missing values", () => {
-  assert.deepEqual(parseOptions({ theme: "dark", log_level: "debug" }), { options: { theme: "dark", log_level: "debug" }, invalid: [] });
-  assert.deepEqual(parseOptions({ theme: "neon", log_level: 3 }), { options: { ...DEFAULT_OPTIONS }, invalid: ["theme", "log_level"] });
+  assert.deepEqual(DEFAULT_OPTIONS, { log_level: "info" });
+  assert.deepEqual(parseOptions({ log_level: "debug" }), { options: { log_level: "debug" }, invalid: [] });
+  assert.deepEqual(parseOptions({ log_level: 3 }), { options: { ...DEFAULT_OPTIONS }, invalid: ["log_level"] });
   assert.deepEqual(parseOptions({}).options, DEFAULT_OPTIONS);
   assert.deepEqual(parseOptions([]).invalid, ["(not an object)"]);
 });
@@ -22,8 +23,19 @@ test("readOptions: missing file and bad JSON fall back to defaults", async (t) =
   assert.deepEqual(await readOptions(join(dir, "missing.json"), log), DEFAULT_OPTIONS);
   await writeFile(join(dir, "bad.json"), "{not json");
   assert.deepEqual(await readOptions(join(dir, "bad.json"), log), DEFAULT_OPTIONS);
-  await writeFile(join(dir, "ok.json"), JSON.stringify({ theme: "light", log_level: "warning" }));
-  assert.deepEqual(await readOptions(join(dir, "ok.json"), log), { theme: "light", log_level: "warning" });
+  await writeFile(join(dir, "ok.json"), JSON.stringify({ log_level: "warning" }));
+  assert.deepEqual(await readOptions(join(dir, "ok.json"), log), { log_level: "warning" });
+});
+
+test("readOptions: a leftover theme option from an older install is ignored quietly", async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), "hl-opt-"));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const f = join(dir, "options.json");
+  await writeFile(f, JSON.stringify({ theme: "dark", log_level: "warning" }));
+  warnings.length = 0;
+  assert.deepEqual(await readOptions(f, log), { log_level: "warning" });
+  assert.deepEqual(warnings, [], "no warning for a removed option");
+  assert.deepEqual(parseOptions({ theme: "neon" }), { options: { ...DEFAULT_OPTIONS }, invalid: [] });
 });
 
 test("config path display from slug sources", () => {
@@ -56,7 +68,7 @@ test("readOptions: an unreadable file warns with the code and falls back to defa
   const dir = await mkdtemp(join(tmpdir(), "hl-opt-"));
   t.after(() => rm(dir, { recursive: true, force: true }));
   const f = join(dir, "options.json");
-  await writeFile(f, JSON.stringify({ theme: "dark" }), { mode: 0o000 });
+  await writeFile(f, JSON.stringify({ log_level: "debug" }), { mode: 0o000 });
   warnings.length = 0;
   assert.deepEqual(await readOptions(f, log), DEFAULT_OPTIONS);
   assert.ok(warnings.some((w) => w.includes("Can't read app options")));
