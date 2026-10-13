@@ -21,7 +21,32 @@ import { DASH, clampPct, clockTime, formatPercent, formatValue, isMissing, parse
 /** @typedef {{ kind?: string, host?: string, httpStatus?: number, timeoutS?: number, message?: string }} WidgetError */
 /** @typedef {{ state: "loading" | "ok" | "error" | "unsupported", values?: Record<string, unknown>, nowPlaying?: NowPlayingItem[], error?: WidgetError, updatedAt?: string, lastOkAt?: string }} WidgetResult */
 /** @typedef {{ rev: number, now: string, refreshing: boolean, status: Record<string, Status>, widgets: Record<string, WidgetResult> }} Snapshot */
-/** @typedef {{ settings: Settings, now: number, backendStale: boolean, lastPollAt: number, locale?: string }} ViewCtx */
+/**
+ * View context. `now` is the SERVER's clock (browser time + the offset measured
+ * from StateSnapshot.now) and is compared with server timestamps (checkedAt,
+ * downSince, lastOkAt). `clientNow` is the browser's clock, compared with
+ * lastPollAt (also browser time). clientNow defaults to now (no skew).
+ * @typedef {{ settings: Settings, now: number, clientNow?: number, backendStale: boolean, lastPollAt: number, locale?: string }} ViewCtx
+ */
+
+/** Browser-clock "now" of a context. @param {ViewCtx} ctx */
+export function clientNowOf(ctx) {
+  return typeof ctx.clientNow === "number" ? ctx.clientNow : ctx.now;
+}
+
+/** Convert a server timestamp to the browser's clock for wall-clock display. @param {number} t @param {ViewCtx} ctx */
+export function toClientTime(t, ctx) {
+  return t - (ctx.now - clientNowOf(ctx));
+}
+
+/**
+ * Offset of the server clock from the browser clock, from a snapshot's `now`.
+ * 0 when unknown. @param {string} serverNowIso @param {number} clientNow
+ */
+export function clockSkew(serverNowIso, clientNow) {
+  const t = parseTime(serverNowIso);
+  return Number.isFinite(t) ? t - clientNow : 0;
+}
 
 /** Browser poll interval for api/state (design §4.4). */
 export const POLL_MS = 5000;
@@ -344,11 +369,14 @@ export function statusView(tile, st, ctx) {
     const r = downReason(st, locale);
     let tooltip = `Down · ${r.full}${r.checked && ago ? ` · ${ago}` : ""}`;
     const since = parseTime(st.downSince);
-    if (Number.isFinite(since)) tooltip += `\nDown since ${clockTime(since, locale)} (${shortSpan(now - since, locale)})`;
-    const inline = tile.widget ? null : `${r.short}${Number.isFinite(checkedAt) ? ` · ${relativeTime(now - checkedAt, locale)}` : ""}`;
+    if (Number.isFinite(since)) {
+      tooltip += `\nDown since ${clockTime(toClientTime(since, ctx), locale)} (${shortSpan(now - since, locale)})`;
+    }
+    // Shown in the description slot on every down tile (UX L7), so phones see why.
+    const inline = `${r.short}${Number.isFinite(checkedAt) ? ` · ${relativeTime(now - checkedAt, locale)}` : ""}`;
     view = { kind: "down", word: "Down", tooltip, inline, stale: false };
   } else {
-    const reason = st.detail ? st.detail : "internal error";
+    const reason = errnoText(st.detail);
     view = {
       kind: "unknown",
       word: "Unknown",
@@ -362,10 +390,24 @@ export function statusView(tile, st, ctx) {
     view = {
       ...view,
       stale: true,
-      tooltip: `Last known: ${firstLine} · ${relativeTime(now - ctx.lastPollAt, locale)}. Can't reach the dashboard backend.`,
+      tooltip: ctx.lastPollAt
+        ? `Last known: ${firstLine} · ${relativeTime(clientNowOf(ctx) - ctx.lastPollAt, locale)}. Can't reach the dashboard backend.`
+        : "Can't reach the dashboard backend.",
     };
   }
   return view;
+}
+
+const ERRNO = /** @type {Record<string, string>} */ ({
+  EPERM: "permission denied", EACCES: "permission denied", ENOENT: "ping isn't installed", ENOMEM: "out of memory",
+  EMFILE: "too many open files", ENFILE: "too many open files", EAGAIN: "temporarily unavailable", ETIMEDOUT: "timed out",
+});
+
+/** "permission denied (EPERM)" for an errno-style detail; plain text passes through. @param {string | undefined} detail */
+export function errnoText(detail) {
+  if (!detail) return "internal error";
+  const known = ERRNO[detail];
+  return known ? `${known} (${detail})` : detail;
 }
 
 // ---------------------------------------------------------------------------
@@ -389,8 +431,10 @@ export function widgetErrorText(tile, err, settings) {
   const name = tile.name;
   switch (err.kind) {
     case "auth": {
-      let msg = `Sign-in failed. Check the API key/username for ${name} in services.yaml.`;
-      if (tile.widget?.type === "immich" && err.httpStatus === 403) msg += " The key needs the server.statistics permission.";
+      const msg =
+        tile.widget?.type === "immich" && err.httpStatus === 403
+          ? "Sign-in failed. The Immich API key needs the `server.statistics` permission."
+          : `Sign-in failed. Check the API key/username for ${name} in services.yaml.`;
       return { message: msg, detail: err.httpStatus ? `HTTP ${err.httpStatus}` : "" };
     }
     case "unreachable":
@@ -454,6 +498,18 @@ export function widgetView(tile, res, ctx) {
 
   if (res.state === "ok") {
     const cells = cellsFrom(obj(res.values));
+    if (ctx.backendStale && ctx.lastPollAt) {
+      // The browser can't reach the backend: these values are old too (UX §5.3, review F7).
+      const at = clockTime(ctx.lastPollAt, ctx.locale);
+      return {
+        ...base,
+        kind: "stale",
+        cells,
+        staleText: relativeTime(clientNowOf(ctx) - ctx.lastPollAt, ctx.locale),
+        staleTitle: `Can't reach the dashboard backend. Showing values from ${at}.`,
+        sr: `${srCells(cells)}. Showing values from ${at}`,
+      };
+    }
     return { ...base, kind: "ok", cells, sr: srCells(cells) };
   }
   // state === "error"
@@ -463,13 +519,14 @@ export function widgetView(tile, res, ctx) {
   const values = res.values && typeof res.values === "object" ? obj(res.values) : null;
   if (values && TRANSIENT.has(String(err.kind)) && Number.isFinite(lastOk) && ctx.now - lastOk <= windowMs) {
     const cells = cellsFrom(values);
+    const at = clockTime(toClientTime(lastOk, ctx), ctx.locale);
     return {
       ...base,
       kind: "stale",
       cells,
       staleText: relativeTime(ctx.now - lastOk, ctx.locale),
-      staleTitle: `Couldn't refresh. Showing values from ${clockTime(lastOk, ctx.locale)}.`,
-      sr: `${srCells(cells)}. Showing values from ${clockTime(lastOk, ctx.locale)}`,
+      staleTitle: `Couldn't refresh. Showing values from ${at}.`,
+      sr: `${srCells(cells)}. Showing values from ${at}`,
     };
   }
   if (w.hideErrors) return { ...base, kind: "muted", message: DASH, sr: `${tile.name} stats not available` };
@@ -500,7 +557,7 @@ export function codeSegments(s) {
 /**
  * @typedef {{ title: string, paused: boolean, meta: string, metaShort: string, line2: string, pct: number | null }} NowRow
  * @typedef {{ kind: "none" | "loading" | "items" | "error", stale: boolean, rows: NowRow[],
- *   overflow: string, overflowTitle: string, empty: boolean, muted: boolean, sr: string }} NowPlayingView
+ *   overflow: string, overflowTitle: string, empty: boolean, muted: boolean, message: string, sr: string }} NowPlayingView
  */
 
 /**
@@ -527,11 +584,13 @@ function nowRow(it, locale) {
  */
 export function nowPlayingView(tile, res, wv, locale) {
   /** @type {NowPlayingView} */
-  const base = { kind: "none", stale: false, rows: [], overflow: "", overflowTitle: "", empty: false, muted: false, sr: "" };
+  const base = { kind: "none", stale: false, rows: [], overflow: "", overflowTitle: "", empty: false, muted: false, message: "", sr: "" };
   if (!tile.widget?.nowPlaying || wv.kind === "unsupported" || wv.kind === "none") return base;
   if (wv.kind === "loading") return { ...base, kind: "loading", sr: "Loading now playing" };
   if (wv.kind === "error" || wv.kind === "muted") {
-    return { ...base, kind: "error", muted: wv.kind === "muted", sr: "Now playing not available" };
+    // With no stats row (enableBlocks off) the list is the only place for the error (UX L8).
+    const message = wv.kind === "error" && tile.widget.fields.length === 0 ? wv.message : "";
+    return { ...base, kind: "error", muted: wv.kind === "muted", message, sr: "Now playing not available" };
   }
   const items = arr(res?.nowPlaying).filter((x) => x && typeof x === "object");
   const rows = items.map((it) => nowRow(/** @type {NowPlayingItem} */ (it), locale));

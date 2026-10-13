@@ -188,3 +188,17 @@ test("stop() cancels the timer and later ticks do nothing", async () => {
   await flush();
   assert.equal(h.calls.state, 1);
 });
+
+test("F1: each successful poll records the server clock offset; configAt is set once", async () => {
+  const h = harness();
+  h.states = [{ ...snap(1), now: new Date(h.now + 90_000).toISOString() }];
+  h.poller.start();
+  await flush();
+  assert.equal(h.poller.state.skew, 90_000);
+  const configAt = h.poller.state.configAt;
+  assert.equal(configAt, h.now);
+  h.states = [{ ...snap(1), now: "not a time" }];
+  await h.step();
+  assert.equal(h.poller.state.skew, 0, "unparseable now: no offset");
+  assert.equal(h.poller.state.configAt, configAt);
+});

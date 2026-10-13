@@ -98,3 +98,34 @@ test("translucent card colours are composited; unsafe shadow/font/length values 
   assert.equal(t.vars["--hl-font"], undefined);
   assert.equal(t.vars["--hl-radius"], undefined);
 });
+
+test("delta 4 / M3: status words are checked against the tinted pill, not the card", async () => {
+  const { PILL_ALPHA } = await import("../../web/theme.js");
+  // Dark theme with a dark red card: "Down" (#ff6b6b) is ~4:1 on its own tint.
+  const t = computeTheme("auto", { "--primary-background-color": "#1a0000", "--card-background-color": "#5a1010", "--primary-text-color": "#ffffff" }, true);
+  assert.equal(t.scheme, "dark");
+  const card = parseColor(t.vars["--hl-card"]);
+  const down = parseColor("#ff6b6b");
+  const pill = composite([down[0], down[1], down[2], PILL_ALPHA.dark], card);
+  assert.ok(contrast(down, pill) < 4.5, "precondition: fails on the tint");
+  assert.equal(t.vars["--hl-status-down-text"], "rgb(255, 255, 255)");
+  const word = parseColor(t.vars["--hl-status-down-text"]);
+  assert.ok(contrast(word, pill) >= 4.5);
+});
+
+test("delta 4: text colour that also fails on the tint falls back to black or white", () => {
+  // Mid-grey text on a mid-green card: neither status green nor the text reaches 4.5:1.
+  const t = computeTheme("auto", { "--primary-background-color": "#f0f0f0", "--card-background-color": "#4caf50", "--primary-text-color": "#666666" }, false);
+  assert.equal(t.vars["--hl-status-up-text"], "rgb(0, 0, 0)");
+});
+
+test("delta 4: low-contrast theme secondary text is stepped toward the text colour", async () => {
+  const { ensureContrast } = await import("../../web/theme.js");
+  const t = computeTheme("auto", { "--primary-background-color": "#ffffff", "--card-background-color": "#ffffff", "--primary-text-color": "#212121", "--secondary-text-color": "#aaaaaa" }, false);
+  const t2 = parseColor(t.vars["--hl-text-2"]);
+  assert.ok(contrast(t2, parseColor("#ffffff")) >= 4.5);
+  assert.notEqual(t.vars["--hl-text-2"], "rgb(33, 33, 33)", "a step, not the full text colour");
+  const ok = computeTheme("auto", { "--primary-background-color": "#ffffff", "--secondary-text-color": "#5f6368" }, false);
+  assert.equal(ok.vars["--hl-text-2"], "rgb(95, 99, 104)", "passing colours are unchanged");
+  assert.deepEqual(ensureContrast([255, 255, 255, 1], [0, 0, 0, 1], [255, 255, 255, 1], 21), [0, 0, 0, 1]);
+});

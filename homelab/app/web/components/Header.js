@@ -15,10 +15,16 @@ import { Glyph } from "./Glyph.js";
  * @property {boolean} stale
  * @property {boolean} refreshBusy
  * @property {() => void} onRefresh
- * @property {{ text: string, onClick: () => void, expanded?: boolean } | null} chip
+ * @property {{ text: string, onClick: () => void, expanded?: boolean, controls?: string } | null} chip
  * @property {string} announcement
  * @property {string} [locale]
  */
+
+/** Compact chip text at xs (UX L4): the count, or "Config" for the error chip. @param {string} text */
+function chipShort(text) {
+  const m = /^(\d+)\b/.exec(text);
+  return m ? m[1] : "Config";
+}
 
 const SUMMARY_GLYPH = { ok: "checkCircle", down: "closeCircle", warn: "alert" };
 
@@ -26,9 +32,12 @@ const SUMMARY_GLYPH = { ok: "checkCircle", down: "closeCircle", warn: "alert" };
 export function Header(p) {
   const rel = p.lastPollAt ? relativeTime(p.now - p.lastPollAt, p.locale) : "";
   // At xs the leading word is hidden visually (UX §3.4 phone header: "1 down · 8s ago").
+  // Never polled successfully: say so instead of showing skeletons forever (UX delta 8, D5/L2).
   const updated = rel
     ? html`<span class="updated-word">${p.stale ? "Stale: updated " : "Updated "}</span>${rel}`
-    : null;
+    : p.stale
+      ? "Can't reach the dashboard backend. Retrying."
+      : null;
   const updatedTitle = p.stale
     ? "Can't reach the dashboard backend. Retrying."
     : p.lastPollAt
@@ -48,14 +57,18 @@ export function Header(p) {
       <span class=${p.stale ? "updated is-stale" : "updated"} title=${updatedTitle}>${updated}</span>
       <button type="button" class=${p.refreshBusy ? "icon-btn refresh is-busy" : "icon-btn refresh"}
         aria-label=${p.refreshBusy ? "Refreshing…" : "Refresh now"} title=${p.refreshBusy ? "Refreshing…" : "Refresh now"}
-        disabled=${p.refreshBusy} onClick=${p.onRefresh}>
+        aria-disabled=${p.refreshBusy ? "true" : "false"} onClick=${() => {
+          // aria-disabled, not disabled: a disabled button would drop keyboard focus (review F4).
+          if (!p.refreshBusy) p.onRefresh();
+        }}>
         <${Glyph} name="refresh" class="refresh-glyph" />
         <span class="refresh-label" aria-hidden="true">Refreshing…</span>
       </button>
       ${p.chip
-        ? html`<button type="button" class="chip" onClick=${p.chip.onClick}
-            aria-expanded=${p.chip.expanded === undefined ? undefined : String(p.chip.expanded)}>
-            <${Glyph} name="alert" /><span>${p.chip.text}</span>
+        ? html`<button type="button" class="chip" onClick=${p.chip.onClick} aria-label=${p.chip.text}
+            aria-expanded=${p.chip.expanded === undefined ? undefined : String(p.chip.expanded)}
+            aria-controls=${p.chip.controls}>
+            <${Glyph} name="alert" /><span class="chip-long">${p.chip.text}</span><span class="chip-short" aria-hidden="true">${chipShort(p.chip.text)}</span>
           </button>`
         : null}
     </div>

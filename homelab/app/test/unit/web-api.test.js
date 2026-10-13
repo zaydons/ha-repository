@@ -30,14 +30,14 @@ test("getConfig validates the body and maps HTTP errors", async () => {
   await assert.rejects(getConfig(fakeFetch(200, undefined)), /Unexpected/);
 });
 
-test("postRefresh: JSON POST, 202 accepted, 429 retry-after (bounded), other codes throw", async () => {
+test("postRefresh: JSON POST, 202 accepted, 429 retry-after (bounded to 10 s), other codes throw", async () => {
   const ok = fakeFetch(202, { accepted: true });
   assert.deepEqual(await postRefresh(ok), { accepted: true });
   assert.equal(ok.calls[0].url, "api/refresh");
   assert.equal(ok.calls[0].init.method, "POST");
   assert.equal(ok.calls[0].init.headers["Content-Type"], "application/json");
   assert.deepEqual(await postRefresh(fakeFetch(429, { retryAfterS: 7 })), { accepted: false, retryAfterS: 7 });
-  assert.deepEqual(await postRefresh(fakeFetch(429, { retryAfterS: 9999 })), { accepted: false, retryAfterS: 60 });
+  assert.deepEqual(await postRefresh(fakeFetch(429, { retryAfterS: 9999 })), { accepted: false, retryAfterS: 10 });
   assert.deepEqual(await postRefresh(fakeFetch(429, {})), { accepted: false, retryAfterS: 10 });
   await assert.rejects(postRefresh(fakeFetch(415, {})), /HTTP 415/);
 });

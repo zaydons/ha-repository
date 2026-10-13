@@ -148,7 +148,7 @@ test("status pill: down reasons use the UX copy, with down-since line", () => {
   const since = statusView(tile(), { state: "down", kind: "http", reason: "refused", checkedAt: ago(1), downSince: ago(14 * 60) }, ctx());
   assert.match(since.tooltip, /\nDown since .+ \(14m\)$/);
   const withWidget = statusView(tile({ widget: widget() }), { state: "down", kind: "http", reason: "refused", checkedAt: ago(1) }, ctx());
-  assert.equal(withWidget.inline, null, "tiles with stats keep their description");
+  assert.equal(withWidget.inline, "Connection refused · just now", "down reason on stats tiles too (UX delta 6)");
 });
 
 test("status pill: loading, no check, hidden, unknown, stale backend", () => {
@@ -159,7 +159,9 @@ test("status pill: loading, no check, hidden, unknown, stale backend", () => {
   assert.equal(statusView(tile({ check: "none" }), undefined, ctx({ settings: { ...SETTINGS, hideNoCheck: true } })).kind, "hidden");
   const unk = statusView(tile(), { state: "unknown", kind: "http", reason: "check_failed", detail: "EPERM", checkedAt: ago(5) }, ctx());
   assert.equal(unk.word, "Unknown");
-  assert.equal(unk.tooltip, "Couldn't run the check: EPERM. Will retry in 30 s.");
+  assert.equal(unk.tooltip, "Couldn't run the check: permission denied (EPERM). Will retry in 30 s.");
+  const odd = statusView(tile(), { state: "unknown", kind: "http", detail: "weird thing", checkedAt: ago(5) }, ctx());
+  assert.equal(odd.tooltip, "Couldn't run the check: weird thing. Will retry in 30 s.");
   const stale = statusView(tile(), { state: "up", kind: "http", httpStatus: 200, checkedAt: ago(400) }, ctx({ backendStale: true, lastPollAt: NOW - 300_000 }));
   assert.equal(stale.stale, true);
   assert.equal(stale.tooltip, "Last known: Up · 5m ago. Can't reach the dashboard backend.");
@@ -197,7 +199,7 @@ test("widget errors: copy per kind, counted as issues", () => {
   assert.equal(msg({ kind: "auth" }).countsAsIssue, true);
   assert.equal(msg({ kind: "config" }).sr.includes("`"), false);
   const immich = widgetView(tile({ name: "Immich", widget: widget({ type: "immich" }) }), { state: "error", error: { kind: "auth", httpStatus: 403 } }, ctx());
-  assert.match(immich.message, /server\.statistics permission/);
+  assert.equal(immich.message, "Sign-in failed. The Immich API key needs the `server.statistics` permission.");
 });
 
 test("widget: transient errors keep last values as stale for 3 intervals, then error", () => {
@@ -359,4 +361,49 @@ test("codeSegments splits backtick spans, unbalanced ticks stay literal", () => 
     { code: false, text: ". See docs." },
   ]);
   assert.deepEqual(codeSegments("a ` b"), [{ code: false, text: "a ` b" }]);
+});
+
+// ---------------------------------------------------------------- rework (reviews 18/19, spec deltas)
+
+test("F1: server-clock offset is used for server timestamps, browser clock for polls", async () => {
+  const { clockSkew, toClientTime } = await import("../../web/model.js");
+  assert.equal(clockSkew(new Date(NOW + 300_000).toISOString(), NOW), 300_000);
+  assert.equal(clockSkew("garbage", NOW), 0);
+  // Browser 5 min ahead of the server: server time = browser time - 5 min.
+  const browser = NOW + 300_000;
+  const c = ctx({ now: NOW, clientNow: browser, lastPollAt: browser });
+  const v = statusView(tile(), { state: "up", kind: "http", httpStatus: 200, checkedAt: ago(12) }, c);
+  assert.equal(v.tooltip, "Up · HTTP 200 · checked 12s ago", "not 5m ago");
+  const t = tile({ widget: widget() });
+  const stale = widgetView(t, { state: "error", error: { kind: "timeout" }, values: { wanted: 1 }, lastOkAt: ago(60) }, c);
+  assert.equal(stale.kind, "stale", "stale window measured on the server clock");
+  assert.equal(toClientTime(NOW, c), browser);
+  // Browser 5 min behind: still stale within the window, not "just now".
+  const behind = ctx({ now: NOW, clientNow: NOW - 300_000, lastPollAt: NOW - 300_000 });
+  assert.equal(statusView(tile(), { state: "up", kind: "http", checkedAt: ago(40) }, behind).tooltip, "Up · checked 40s ago");
+});
+
+test("F7: backend unreachable turns ok stats stale", () => {
+  const t = tile({ widget: widget() });
+  const c = ctx({ backendStale: true, lastPollAt: NOW - 120_000 });
+  const v = widgetView(t, { state: "ok", values: { wanted: 3, queued: 1 } }, c);
+  assert.equal(v.kind, "stale");
+  assert.equal(v.staleText, "2m ago");
+  assert.match(v.staleTitle, /^Can't reach the dashboard backend\. Showing values from /);
+  assert.deepEqual(v.cells.map((x) => x.value), ["3", "1"]);
+});
+
+test("D5/L2: stale pill before any successful poll", () => {
+  const v = statusView(tile(), { state: "up", kind: "http" }, ctx({ backendStale: true, lastPollAt: 0 }));
+  assert.equal(v.tooltip, "Can't reach the dashboard backend.");
+});
+
+test("L8: now playing shows the widget error when there is no stats row", () => {
+  const t = tile({ name: "Jellyfin", widget: widget({ type: "jellyfin", nowPlaying: true, fields: [] }) });
+  const res = { state: "error", error: { kind: "auth" } };
+  const v = nowPlayingView(t, res, widgetView(t, res, ctx()), "en");
+  assert.equal(v.kind, "error");
+  assert.match(v.message, /^Sign-in failed/);
+  const withStats = jf();
+  assert.equal(nowPlayingView(withStats, res, widgetView(withStats, res, ctx()), "en").message, "", "stats row carries it");
 });

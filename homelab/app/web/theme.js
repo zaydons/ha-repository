@@ -14,7 +14,7 @@
 
 /**
  * Built-in token values (UX §7.2) that matter for the contrast guard. The full
- * token set lives in styles.css; keep the two in sync.
+ * token set (incl. --hl-link-on-error for banner links) lives in styles.css; keep the two in sync.
  */
 export const TOKENS = Object.freeze({
   light: { card: "#ffffff", text: "#212121", up: "#1b7a2e", down: "#c62828", warn: "#8a5300", unknown: "#5f6368", focus: "#0277bd" },
@@ -113,6 +113,24 @@ export function toCss(c) {
   return c[3] >= 1 ? `rgb(${r(c[0])}, ${r(c[1])}, ${r(c[2])})` : `rgba(${r(c[0])}, ${r(c[1])}, ${r(c[2])}, ${+c[3].toFixed(3)})`;
 }
 
+/** Pill tint alpha per scheme; matches --hl-pill-mix in styles.css. */
+export const PILL_ALPHA = Object.freeze({ light: 0.1, dark: 0.16 });
+
+/**
+ * Step `c` toward `target` in 10% increments until it reaches `ratio` on `bg`
+ * (spec delta 4: theme secondary text). Returns `target` if nothing earlier passes.
+ * @param {RGBA} c @param {RGBA} target @param {RGBA} bg @param {number} ratio @returns {RGBA}
+ */
+export function ensureContrast(c, target, bg, ratio) {
+  for (let i = 0; i <= 10; i++) {
+    const f = i / 10;
+    /** @type {RGBA} */
+    const m = [c[0] + (target[0] - c[0]) * f, c[1] + (target[1] - c[1]) * f, c[2] + (target[2] - c[2]) * f, 1];
+    if (contrast(m, bg) >= ratio) return m;
+  }
+  return target;
+}
+
 const WHITE = /** @type {RGBA} */ ([255, 255, 255, 1]);
 const BLACK = /** @type {RGBA} */ ([0, 0, 0, 1]);
 
@@ -155,7 +173,7 @@ export function computeTheme(option, haVars, prefersDark, resolve = (v) => v) {
   /** @type {Record<string, string>} */
   const vars = { "--hl-bg": toCss(bg), "--hl-card": toCss(card), "--hl-text": toCss(text) };
   const text2 = color(haVars["--secondary-text-color"]);
-  if (text2) vars["--hl-text-2"] = toCss(composite(text2, card));
+  if (text2) vars["--hl-text-2"] = toCss(ensureContrast(composite(text2, card), text, card, 4.5));
   const divider = color(haVars["--divider-color"]);
   if (divider) vars["--hl-divider"] = toCss(divider);
   const primary = color(haVars["--primary-color"]);
@@ -168,12 +186,17 @@ export function computeTheme(option, haVars, prefersDark, resolve = (v) => v) {
     vars["--hl-focus"] = toCss(text);
   }
 
-  // Contrast guard (UX §7.2): status words need 4.5:1 on the card, icons 3:1.
+  // Contrast guard (UX §7.2, spec delta 4): each status word needs 4.5:1 on its
+  // tinted pill (status colour at the pill alpha over the card); icons need 3:1 on the card.
+  const pillAlpha = PILL_ALPHA[scheme];
   for (const k of /** @type {const} */ (["up", "down", "warn", "unknown"])) {
     const c = /** @type {RGBA} */ (parseColor(t[k]));
-    const ratio = contrast(c, card);
-    if (ratio < 4.5) vars[`--hl-status-${k}-text`] = toCss(text);
-    if (ratio < 3) vars[`--hl-status-${k}`] = toCss(text);
+    const pillBg = composite([c[0], c[1], c[2], pillAlpha], card);
+    if (contrast(c, pillBg) < 4.5) {
+      const word = contrast(text, pillBg) >= 4.5 ? text : contrast(WHITE, pillBg) >= contrast(BLACK, pillBg) ? WHITE : BLACK;
+      vars[`--hl-status-${k}-text`] = toCss(word);
+    }
+    if (contrast(c, card) < 3) vars[`--hl-status-${k}`] = toCss(text);
   }
 
   const radius = (haVars["--ha-card-border-radius"] ?? "").trim();
@@ -212,6 +235,20 @@ export function readParentVars() {
     return out["--primary-background-color"] ? out : null;
   } catch {
     // Cross-origin (e.g. opened directly in a test harness): use the fallback.
+    return null;
+  }
+}
+
+/** HA shows its own toolbar with the panel title below this parent width (spec delta 5). */
+export const HA_NARROW_PX = 870;
+
+/** true/false when the parent HA window is readable, null otherwise (read-only). */
+export function readParentNarrow() {
+  try {
+    if (window.parent === window) return null;
+    const w = window.parent.innerWidth;
+    return typeof w === "number" && w > 0 ? w < HA_NARROW_PX : null;
+  } catch {
     return null;
   }
 }
@@ -261,6 +298,15 @@ export function startThemeBridge(initial = "auto") {
       else root.style.removeProperty(name);
     }
   };
+
+  // The iframe resizes whenever the HA window does, so our own resize event is enough.
+  const applyNarrow = () => {
+    const narrow = readParentNarrow();
+    if (narrow === null) delete root.dataset.haNarrow;
+    else root.dataset.haNarrow = String(narrow);
+  };
+  applyNarrow();
+  window.addEventListener("resize", applyNarrow);
 
   apply();
   media.addEventListener("change", apply);

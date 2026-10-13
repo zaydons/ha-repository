@@ -16,7 +16,7 @@ export function ConfigBanner(p) {
   return html`<div class="banner" role="alert">
     <${Glyph} name="alert" class="banner-glyph" />
     <div class="banner-body">
-      <p class="banner-title">${bannerTitle(p.error)}</p>
+      <p class="banner-title" tabindex="-1">${bannerTitle(p.error)}</p>
       <p><${RichText} text=${p.error.message} /></p>
       <p>${loaded ? `Showing the last working config (loaded ${loaded}).` : "Showing the last working config."}</p>
       ${p.error.excerpt ? html`<${Excerpt} excerpt=${p.error.excerpt} />` : null}
