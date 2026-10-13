@@ -1,0 +1,5 @@
+[
+  { "uuid": "a1", "source": "", "klass": "ScrubPaused", "args": {}, "node": "A", "key": "k1", "datetime": { "$date": 1760000000000 }, "last_occurrence": { "$date": 1760000000000 }, "dismissed": false, "mail": null, "text": "Scrub paused", "id": "a1", "level": "WARNING", "formatted": "<b>Scrub</b> paused", "one_shot": false },
+  { "uuid": "a2", "source": "", "klass": "Update", "args": {}, "node": "A", "key": "k2", "datetime": { "$date": 1760000000000 }, "last_occurrence": { "$date": 1760000000000 }, "dismissed": true, "mail": null, "text": "Update available", "id": "a2", "level": "INFO", "formatted": "Update available", "one_shot": true },
+  { "uuid": "a3", "source": "", "klass": "SMART", "args": {}, "node": "A", "key": "k3", "datetime": { "$date": 1760000000000 }, "last_occurrence": { "$date": 1760000000000 }, "dismissed": false, "mail": null, "text": "SMART error", "id": "a3", "level": "CRITICAL", "formatted": "SMART error", "one_shot": false }
+]

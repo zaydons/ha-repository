@@ -1,0 +1,28 @@
+---
+# Homelab Dashboard: your services (Homepage-compatible format).
+#
+# Coming from Homepage? Replace this file with your Homepage services.yaml.
+# Supported widgets work right away; other widgets become plain link tiles.
+#
+# Changes show up on the dashboard a few seconds after you save.
+# Keep API keys out of this file if you like: put them in secrets.yaml
+# (`plex_key: abc123`) and write `key: !secret plex_key` here.
+
+- Getting started:
+    - Home Assistant:
+        icon: si-homeassistant
+        href: http://homeassistant.local:8123/
+        description: This dashboard's home
+        # Status check, run by the app (inside Home Assistant's network).
+        siteMonitor: http://homeassistant:8123/
+
+    # A service with live stats. Uncomment and fill in your own address and key.
+    # - Sonarr:
+    #     icon: sonarr.png
+    #     href: http://192.168.1.20:8989/
+    #     description: TV shows
+    #     siteMonitor: http://192.168.1.20:8989/
+    #     widget:
+    #       type: sonarr
+    #       url: http://192.168.1.20:8989
+    #       key: !secret sonarr_key

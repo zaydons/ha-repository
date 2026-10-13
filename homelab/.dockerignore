@@ -1,0 +1,7 @@
+# Only app/src, app/web, app/sample, the lockfile and entrypoint.sh are copied.
+**/node_modules
+app/test
+**/*.md
+app/tsconfig.json
+**/.DS_Store
+**/.git*

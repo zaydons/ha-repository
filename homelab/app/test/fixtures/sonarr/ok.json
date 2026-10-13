@@ -1,0 +1,9 @@
+{
+  "/api/v3/wanted/missing": { "page": 1, "pageSize": 1, "sortKey": "airDateUtc", "sortDirection": "descending", "totalRecords": 17, "records": [{ "seriesId": 3, "episodeNumber": 5, "seasonNumber": 2, "title": "Episode Five", "monitored": true, "hasFile": false, "id": 101 }] },
+  "/api/v3/queue": { "page": 1, "pageSize": 1, "sortKey": "timeleft", "sortDirection": "ascending", "totalRecords": 2, "records": [{ "seriesId": 3, "episodeId": 101, "size": 1073741824, "sizeleft": 536870912, "status": "downloading", "id": 9001 }] },
+  "/api/v3/series": [
+    { "id": 1, "title": "Show One", "monitored": true, "statistics": { "episodeCount": 10, "episodeFileCount": 10 } },
+    { "id": 2, "title": "Show Two", "monitored": false, "statistics": { "episodeCount": 8, "episodeFileCount": 3 } },
+    { "id": 3, "title": "Show Three", "monitored": true, "statistics": { "episodeCount": 24, "episodeFileCount": 20 } }
+  ]
+}

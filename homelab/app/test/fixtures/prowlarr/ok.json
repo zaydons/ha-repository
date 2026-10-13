@@ -1,0 +1,11 @@
+{
+  "/api/v1/indexerstats": {
+    "id": 1,
+    "indexers": [
+      { "indexerId": 1, "indexerName": "Indexer A", "averageResponseTime": 250, "numberOfQueries": 120, "numberOfGrabs": 15, "numberOfRssQueries": 40, "numberOfAuthQueries": 0, "numberOfFailedQueries": 3, "numberOfFailedGrabs": 1, "numberOfFailedRssQueries": 0, "numberOfFailedAuthQueries": 0 },
+      { "indexerId": 2, "indexerName": "Indexer B", "averageResponseTime": 410, "numberOfQueries": 80, "numberOfGrabs": 5, "numberOfRssQueries": 30, "numberOfAuthQueries": 1, "numberOfFailedQueries": 7, "numberOfFailedGrabs": 0, "numberOfFailedRssQueries": 2, "numberOfFailedAuthQueries": 0 }
+    ],
+    "userAgents": [],
+    "hosts": []
+  }
+}

@@ -1,0 +1,6 @@
+configuration:
+  log_level:
+    name: Log level
+    description: >-
+      How much the app writes to its log. Use debug only while troubleshooting.
+      Secrets are redacted at every level.

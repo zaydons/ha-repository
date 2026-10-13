@@ -1,0 +1,20 @@
+---
+# Homelab Dashboard settings (a subset of Homepage's settings.yaml).
+# Every line is optional; remove the "#" to change a default.
+
+# title: Homelab              # page header title
+
+# Groups
+# groupsInitiallyCollapsed: false
+# disableCollapse: false
+# layout:
+#   Getting started:
+#     columns: 3              # at most 3 tiles per row
+#     initiallyCollapsed: false
+
+# Status and stats
+# hideNoCheck: false          # hide the "No check" pill on tiles without a check
+# statusInterval: 30          # seconds between status checks (minimum 10)
+# widgetInterval: 30          # seconds between widget refreshes (minimum 10)
+# hideErrors: false           # show widget errors as a muted dash
+# tlsVerify: false            # verify HTTPS certificates of your apps
