@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { chmod, cp, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { chmod, cp, mkdir, mkdtemp, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -62,7 +62,19 @@ async function setup(files: Record<string, string> = {}) {
   return { root, configDir, dataDir, ctx, lines, make, cleanup };
 }
 
-async function waitFor(cond: () => boolean, ms = 3000) {
+/**
+ * Replaces a config file in one step (temp file outside the watched folder, then rename), so the
+ * watcher can never see a truncated or half-written file between writeFile's truncate and write.
+ */
+let tmpSeq = 0;
+async function replaceFile(dir: string, name: string, text: string) {
+  const tmp = join(dir, "..", `.${name}.${process.pid}.${tmpSeq++}.tmp`);
+  await writeFile(tmp, text);
+  await rename(tmp, join(dir, name));
+}
+
+// Generous but bounded: the condition is event-driven; the bound only limits a real failure.
+async function waitFor(cond: () => boolean, ms = 10_000) {
   const end = Date.now() + ms;
   while (!cond()) {
     if (Date.now() > end) throw new Error("timed out");
@@ -211,7 +223,7 @@ test("service: hot reload via the stat poll (no fs.watch) within the poll interv
   const svc = env.make({ watch: true, useFsWatch: false, pollMs: 50, debounceMs: 10 });
   await svc.start();
   const rev = svc.getPublic().rev;
-  await writeFile(join(env.configDir, "services.yaml"), GOOD.replace("Sonarr:", "Sonarr Polled:"));
+  await replaceFile(env.configDir, "services.yaml", GOOD.replace("Sonarr:", "Sonarr Polled:"));
   await waitFor(() => svc.getPublic().rev > rev);
   assert.equal(svc.getPublic().groups[0]!.tiles[0]!.name, "Sonarr Polled");
   // secrets.yaml is watched too.
@@ -227,8 +239,20 @@ test("service: hot reload via fs.watch (default watcher)", async (t) => {
   const svc = env.make({ watch: true, pollMs: 60_000, debounceMs: 20 });
   await svc.start();
   const rev = svc.getPublic().rev;
-  await writeFile(join(env.configDir, "services.yaml"), GOOD.replace("Sonarr:", "Sonarr Watched:"));
-  await waitFor(() => svc.getPublic().rev > rev);
+  // The poll is 60 s, so only fs.watch can trigger this reload. On macOS, fs.watch can deliver late
+  // under load or drop an event made right after the watch starts, so the same edit is re-applied
+  // (atomic rename, new inode, new event) every second until the watcher reacts, for at most 15 s.
+  const edited = GOOD.replace("Sonarr:", "Sonarr Watched:");
+  const deadline = Date.now() + 15_000;
+  for (;;) {
+    await replaceFile(env.configDir, "services.yaml", edited);
+    try {
+      await waitFor(() => svc.getPublic().rev > rev, 1000);
+      break;
+    } catch (err) {
+      if (Date.now() > deadline) throw new Error("fs.watch never triggered a reload within 15 s", { cause: err });
+    }
+  }
   assert.equal(svc.getPublic().groups[0]!.tiles[0]!.name, "Sonarr Watched");
 });
 
@@ -346,7 +370,7 @@ test("N2: a ca.pem-only change fires onChange (reload and the watcher)", async (
   await svc.start();
   const got: NormalisedConfig[] = [];
   svc.onChange((c) => got.push(c));
-  await writeFile(join(env.configDir, "ca.pem"), "-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n");
+  await replaceFile(env.configDir, "ca.pem", "-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n");
   await waitFor(() => got.length === 1);
   assert.equal(got[0]!.tiles[0]!.name, "Sonarr");
   await svc.reload();

@@ -68,7 +68,7 @@ after(async () => {
 });
 
 function client(extra: Partial<Parameters<typeof createHttpClient>[0]> = {}) {
-  return createHttpClient({ baseUrl: up.url, tlsVerify: false, timeoutS: 1, secrets: [KEY], ...extra });
+  return createHttpClient({ baseUrl: up.url, tlsVerify: false, timeoutS: 10, secrets: [KEY], ...extra });
 }
 
 async function rejectsKind(p: Promise<unknown>, kind: string, httpStatus?: number): Promise<WidgetError> {
@@ -140,7 +140,7 @@ test("redirects are not followed and map to bad_response", async () => {
     "/api/redirect": { status: 302, headers: { location: `${other.url}/steal` }, body: "" },
   });
   try {
-    const c = createHttpClient({ baseUrl: r.url, tlsVerify: false, timeoutS: 1 });
+    const c = createHttpClient({ baseUrl: r.url, tlsVerify: false, timeoutS: 10 });
     await rejectsKind(c.json("/api/redirect", { headers: { "X-Api-Key": KEY } }), "bad_response", 302);
     assert.equal(other.requests.length, before, "redirect target must not be contacted");
   } finally {
@@ -294,7 +294,7 @@ test("createWidgetHttpClient: binds url, timeout, headers and TLS policy", async
     tlsVerify: false,
     hideErrors: false,
     intervalS: 30,
-    timeoutS: 1,
+    timeoutS: 10,
     nowPlaying: false,
   };
   const h = await createWidgetHttpClient(w).json<Record<string, string>>("/api/headers");

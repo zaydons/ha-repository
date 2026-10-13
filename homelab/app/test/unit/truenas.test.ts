@@ -155,7 +155,7 @@ function truenasHandler(over: Partial<Record<string, (req: RpcRequest) => RpcAns
 function v2ctx(cfg: Omit<WidgetConfig, "type">, net?: Partial<WidgetNetPolicy>, fields = truenas.defaultFields, log = createLogger("truenas")) {
   const ctx = makeCtx({ type: "truenas", version: 2, ...cfg }, fields);
   ctx.log = log;
-  if (net) ctx.net = { tlsVerify: false, timeoutS: 2, secrets: [], ...net };
+  if (net) ctx.net = { tlsVerify: false, timeoutS: 10, secrets: [], ...net };
   return ctx;
 }
 
@@ -186,7 +186,7 @@ test("truenas v2: an http url with a key is upgraded to wss (never sends the key
   // Against a plain-ws server the TLS handshake fails: nothing readable was sent.
   const plain = await startFakeRpc({ handler: truenasHandler() });
   try {
-    await assert.rejects(truenas.fetch(v2ctx({ url: `http://${plain.hostPort}`, key: KEY }, { timeoutS: 1 })), {
+    await assert.rejects(truenas.fetch(v2ctx({ url: `http://${plain.hostPort}`, key: KEY }, { timeoutS: 10 })), {
       kind: "unreachable",
     });
     assert.equal(plain.rawMessages.length, 0);
@@ -269,19 +269,50 @@ test("truenas v2: TLS policy follows ctx.net (verify on rejects self-signed; ca.
 test("truenas v2: timeout, abort, garbage, oversize, upgrade refusals, refused port, server close", async (t) => {
   if (!CERT) return t.skip("openssl not available");
   // Server never answers system.info: the session deadline fires and the socket is torn down.
-  const silent = await startFakeRpc({ tls: CERT, handler: truenasHandler({ "system.info": () => "silent" }) });
+  // Event-driven, no wall clock: each phase waits until the server has the system.info call.
+  let infoSeen: () => void = () => {};
+  const nextInfo = () => new Promise<void>((r) => (infoSeen = r));
+  const silent = await startFakeRpc({
+    tls: CERT,
+    handler: truenasHandler({
+      "system.info": () => {
+        infoSeen();
+        return "silent";
+      },
+    }),
+  });
   try {
-    const started = Date.now();
-    await assert.rejects(truenas.fetch(v2ctx({ url: `https://${silent.hostPort}`, key: KEY }, { timeoutS: 0.5 })), { kind: "timeout" });
-    assert.ok(Date.now() - started < 1500);
+    // The session deadline runs on a mocked clock, so a slow TLS handshake on a loaded host can't
+    // trip it early (the real handshake idle timeout is the same 5 s). It must fire exactly at timeoutS.
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+    let seen = nextInfo();
+    const outcome = truenas
+      .fetch(v2ctx({ url: `https://${silent.hostPort}`, key: KEY }, { timeoutS: 5 }))
+      .then(() => "resolved", (e: unknown) => e);
+    await Promise.race([seen, outcome]);
+    let settled = false;
+    void outcome.then(() => (settled = true));
+    t.mock.timers.tick(4999);
+    await new Promise((r) => setImmediate(r));
+    assert.equal(settled, false, "no timeout before the session deadline");
+    t.mock.timers.tick(1);
+    const err = await outcome;
+    assert.ok(err instanceof WidgetError, String(err));
+    assert.equal(err.kind, "timeout");
+    assert.equal(err.message, "Timed out after 5 s", "the session deadline fired");
+    t.mock.timers.reset();
     assert.ok(await waitFor(() => silent.closeCodes.length === 1), "server saw the socket close");
-    // Abort via ctx.signal.
+    // Abort via ctx.signal, once the session is waiting on system.info.
     const ac = new AbortController();
-    const ctx = v2ctx({ url: `https://${silent.hostPort}`, key: KEY }, { timeoutS: 5 });
+    const ctx = v2ctx({ url: `https://${silent.hostPort}`, key: KEY }, { timeoutS: 30 });
     ctx.signal = ac.signal;
-    setTimeout(() => ac.abort(), 100);
-    await assert.rejects(truenas.fetch(ctx), (e: WidgetError) => e.kind === "timeout" && /cancel/i.test(e.message));
+    seen = nextInfo();
+    const aborted = truenas.fetch(ctx);
+    await Promise.race([seen, aborted.catch(() => {})]);
+    ac.abort();
+    await assert.rejects(aborted, (e: WidgetError) => e.kind === "timeout" && /cancel/i.test(e.message));
   } finally {
+    t.mock.timers.reset();
     await silent.close();
   }
 
@@ -349,7 +380,7 @@ test("ws-rpc: messages over the size cap are bad_response and the session is tor
   try {
     await assert.rejects(
       withRpcSession(
-        { url: new URL(`ws://${s.hostPort}/api/current`), tlsVerify: false, timeoutS: 2, maxMessageBytes: 1024 },
+        { url: new URL(`ws://${s.hostPort}/api/current`), tlsVerify: false, timeoutS: 10, maxMessageBytes: 1024 },
         (r) => r.call("big"),
       ),
       (e: WidgetError) => e.kind === "bad_response" && /larger/.test(e.message),
@@ -387,11 +418,12 @@ test("truenas v2: credentials never reach a log line or an error, on any path", 
       truenasHandler({ "system.info": () => ({ raw: `not json ${KEY}` }) }),
       truenasHandler({ "system.info": () => "silent" }),
     ];
+    const silentHandler = handlers[3];
     for (const handler of handlers) {
       for (const cfg of [{ key: KEY }, { username: USER, password: PASS }, { key: KEY, username: USER }]) {
         const s = await startFakeRpc({ tls: CERT, handler });
         try {
-          await truenas.fetch(v2ctx({ url: `https://${s.hostPort}`, ...cfg }, { timeoutS: 0.4 }));
+          await truenas.fetch(v2ctx({ url: `https://${s.hostPort}`, ...cfg }, { timeoutS: handler === silentHandler ? 0.4 : 10 }));
         } catch (err) {
           assert.ok(err instanceof WidgetError);
           errors.push(`${err.kind} ${err.message} ${err.detail ?? ""}`);

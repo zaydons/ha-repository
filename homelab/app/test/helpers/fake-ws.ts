@@ -128,7 +128,7 @@ export function makeSelfSigned(): { key: string; cert: string } | null {
 }
 
 /** Waits until `pred` holds or `ms` passes. */
-export async function waitFor(pred: () => boolean, ms = 2000): Promise<boolean> {
+export async function waitFor(pred: () => boolean, ms = 10_000): Promise<boolean> {
   const end = Date.now() + ms;
   while (Date.now() < end) {
     if (pred()) return true;

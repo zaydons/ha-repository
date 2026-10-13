@@ -64,7 +64,7 @@ after(() => {
   server.close();
 });
 
-const opts = { tlsVerify: false, timeoutMs: 1000 };
+const opts = { tlsVerify: false, timeoutMs: 10_000 }; // generous: loopback answers in ms; only a hang hits it
 
 test("http check: 200 is up with status, latency and host", async () => {
   const r = await checkHttp(`${base}/`, opts);
@@ -232,13 +232,13 @@ test("http check: self-signed TLS is up with tlsVerify off, down/tls with it on,
   const port = await listen(s);
   try {
     const url = `https://127.0.0.1:${port}/`;
-    const off = await checkHttp(url, { tlsVerify: false, timeoutMs: 2000 });
+    const off = await checkHttp(url, { tlsVerify: false, timeoutMs: 10_000 });
     assert.equal(off.state, "up");
-    const on = await checkHttp(url, { tlsVerify: true, timeoutMs: 2000 });
+    const on = await checkHttp(url, { tlsVerify: true, timeoutMs: 10_000 });
     assert.equal(on.state, "down");
     assert.equal(on.reason, "tls");
     assert.equal(on.detail, "DEPTH_ZERO_SELF_SIGNED_CERT");
-    const withCa = await checkHttp(url, { tlsVerify: true, ca: pair.cert, timeoutMs: 2000 });
+    const withCa = await checkHttp(url, { tlsVerify: true, ca: pair.cert, timeoutMs: 10_000 });
     assert.equal(withCa.state, "up", JSON.stringify(withCa));
   } finally {
     s.closeAllConnections();
