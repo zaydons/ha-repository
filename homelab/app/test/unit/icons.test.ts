@@ -165,6 +165,57 @@ describe("icons: svg and type checks", () => {
     }
   });
 
+  test("V1: namespaced elements, attributes and links are rejected", () => {
+    const bypasses = [
+      // Prefixed active elements (the devsecops sample, and variants).
+      '<svg xmlns="http://www.w3.org/2000/svg" xmlns:s="http://www.w3.org/2000/svg"><s:script>alert(document.domain)</s:script></svg>',
+      '<svg xmlns:s="http://www.w3.org/2000/svg"><s:script\n>alert(1)</s:script></svg>',
+      '<svg><S:SCRIPT>alert(1)</S:SCRIPT></svg>',
+      '<svg xmlns:h="http://www.w3.org/1999/xhtml"><h:script>alert(1)</h:script></svg>',
+      '<svg><a.b-c:script/></svg>',
+      '<svg><\u00e9:script>alert(1)</\u00e9:script></svg>',
+      '<svg><svg:foreignObject><body/></svg:foreignObject></svg>',
+      '<svg><x:iframe src="#"/></svg>',
+      '<svg><x:embed/></svg>',
+      '<svg><x:object/></svg>',
+      '<svg><ev:listener event="load" handler="#h"/><ev:handler id="h">alert(1)</ev:handler></svg>',
+      // Event-handler attributes, plain and prefixed.
+      '<svg x:onload="alert(1)"></svg>',
+      '<svg><rect s:onclick = "alert(1)"/></svg>',
+      '<svg><rect id="a"onmouseover="alert(1)"/></svg>',
+      '<svg><rect\tONLOAD="alert(1)"/></svg>',
+      '<svg><animate onbegin="alert(1)" attributeName="x"/></svg>',
+      // Links to anything other than the same document.
+      '<svg><use x:href="other.svg#a"/></svg>',
+      '<svg><use xlink:href = "https://evil.example/a.svg#x"/></svg>',
+      "<svg><image href='https://tracker.example/p.png'/></svg>",
+      '<svg><a href="&#x6a;avascript:alert(1)"><rect/></a></svg>',
+      '<svg><image href=https://evil.example/x.png /></svg>',
+      '<svg><a xlink:href="data:text/html,<script>alert(1)</script>"/></svg>',
+      '<svg><rect fill="url( \'https://x.example/a\' )"/></svg>',
+      '<svg><set attributeName="xlink:href" to="https://evil.example/"/></svg>',
+      '<svg><animate attributeName="href" values="#a;https://evil.example/"/></svg>',
+      // XHTML content and processing instructions.
+      '<svg><div xmlns="http://www.w3.org/1999/xhtml">x</div></svg>',
+      '<?xml-stylesheet href="x.xsl" type="text/xsl"?><svg/>',
+      '<!DOCTYPE svg [<!ATTLIST svg onload CDATA "alert(1)">]><svg></svg>',
+    ];
+    for (const bad of bypasses) assert.equal(isSafeSvg(Buffer.from(bad)), false, bad);
+  });
+
+  test("V1: legitimate SVG constructs still pass", () => {
+    for (const good of [
+      '<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M0 0"/></svg>',
+      '<svg xmlns:xlink="http://www.w3.org/1999/xlink"><defs><circle id="a"/></defs><clipPath id="b"><use xlink:href="#a" style="overflow:visible"/></clipPath></svg>',
+      "<svg><use xlink:href = '#a'/><rect fill='url(\"#g\")'/></svg>",
+      '<svg><image xlink:href="data:image/png;base64,AAAA"/></svg>',
+      '<svg><animate attributeName="opacity" values="0;1"/><g opacity=".5" offset="1"/></svg>',
+      '<svg><scripts-not-a-tag/><objects/></svg>',
+    ]) {
+      assert.equal(isSafeSvg(Buffer.from(good)), true, good);
+    }
+  });
+
   test("magic bytes must match the extension", () => {
     assert.equal(matchesType(PNG, "image/png"), true);
     assert.equal(matchesType(WEBP, "image/webp"), true);
@@ -389,12 +440,16 @@ describe("icons: service", () => {
     await writeFile(outside, PNG);
     await symlink(outside, join(configDir, "icons", "escape.png"));
     await writeFile(join(configDir, "icons", "evil.svg"), "<svg><script>alert(1)</script></svg>");
+    await writeFile(
+      join(configDir, "icons", "evil-ns.svg"),
+      '<svg xmlns="http://www.w3.org/2000/svg" xmlns:s="http://www.w3.org/2000/svg"><s:script>alert(1)</s:script></svg>',
+    );
     await writeFile(join(configDir, "icons", "fake.png"), "<html><script>x</script></html>");
     await writeFile(join(configDir, "icons", "huge.png"), Buffer.concat([PNG, Buffer.alloc(MAX_ICON_BYTES)]));
     await mkdir(join(configDir, "icons", "dir.png"));
     const cap = capture();
     const svc = service(fakeCdn(), cap.log);
-    for (const f of ["escape.png", "evil.svg", "fake.png", "huge.png", "dir.png", "absent.png"]) {
+    for (const f of ["escape.png", "evil.svg", "evil-ns.svg", "fake.png", "huge.png", "dir.png", "absent.png"]) {
       assert.equal(await svc.get("local", f, q()), null, f);
     }
     assert.ok(cap.lines.some((l) => l.includes("outside the icons folder")));
