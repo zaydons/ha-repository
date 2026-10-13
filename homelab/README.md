@@ -10,4 +10,6 @@ A homelab start page that opens inside Home Assistant as the **Homelab** sidebar
 
 Supports amd64 and aarch64. Experimental (version 0.1).
 
+API keys live in the app's config folder and are included in Home Assistant backups, so keep backups encrypted.
+
 See the **Documentation** tab (DOCS.md) for install, migration from Homepage, the supported keys and widgets, secrets and troubleshooting.
