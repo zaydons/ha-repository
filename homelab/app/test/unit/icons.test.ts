@@ -7,12 +7,12 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { request } from "node:http";
 import type { AddressInfo } from "node:net";
-import { createIconService, NEGATIVE_FAILURE_MS, NEGATIVE_NOT_FOUND_MS } from "../../src/icons/index.ts";
-import type { IconServiceOptions } from "../../src/icons/index.ts";
-import { cdnFile, cdnUrl, contentTypeFor, letterFor, parseCdnFile, parseIcon } from "../../src/icons/resolve.ts";
-import { colourSvg, isSafeSvg, matchesType } from "../../src/icons/svg.ts";
-import { fetchIcon, MAX_ICON_BYTES } from "../../src/icons/cdn.ts";
-import type { FetchFn } from "../../src/icons/cdn.ts";
+import { createIconService, NEGATIVE_FAILURE_MS, NEGATIVE_NOT_FOUND_MS } from "../../src/iconsvc/index.ts";
+import type { IconServiceOptions } from "../../src/iconsvc/index.ts";
+import { cdnFile, cdnUrl, contentTypeFor, letterFor, parseCdnFile, parseIcon } from "../../src/iconsvc/resolve.ts";
+import { colourSvg, isSafeSvg, matchesType } from "../../src/iconsvc/svg.ts";
+import { fetchIcon, MAX_ICON_BYTES } from "../../src/iconsvc/cdn.ts";
+import type { FetchFn } from "../../src/iconsvc/cdn.ts";
 import { buildHttpServer } from "../../src/server.ts";
 import { createStubConfigService, createStubStateService } from "../../src/http/stubs.ts";
 import { ICON_CSP } from "../../src/http/respond.ts";
@@ -70,7 +70,7 @@ beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), "hl-icons-"));
   configDir = join(root, "config");
   dataDir = join(root, "data");
-  await mkdir(join(configDir, "icons"), { recursive: true });
+  await mkdir(join(configDir, "custom-icons"), { recursive: true });
   await mkdir(join(dataDir, "icon-cache"), { recursive: true });
   clock = Date.parse("2026-10-12T12:00:00Z");
 });
@@ -418,9 +418,9 @@ describe("icons: service", () => {
     assert.doesNotMatch(ignored!.body.toString(), /fill="#/);
   });
 
-  test("/config/icons wins over the CDN and is served with an allowlisted type", async () => {
-    await writeFile(join(configDir, "icons", "plex.png"), PNG);
-    await writeFile(join(configDir, "icons", "nas.svg"), SVG);
+  test("/config/custom-icons wins over the CDN and is served with an allowlisted type", async () => {
+    await writeFile(join(configDir, "custom-icons", "plex.png"), PNG);
+    await writeFile(join(configDir, "custom-icons", "nas.svg"), SVG);
     const cdn = fakeCdn();
     const svc = service(cdn);
     assert.deepEqual(svc.resolve("plex.png", "Plex"), { kind: "proxied", src: "icons/local/plex.png" });
@@ -431,31 +431,48 @@ describe("icons: service", () => {
     assert.equal(png?.contentType, "image/png");
     const svg = await svc.get("local", "nas.svg", q());
     assert.equal(svg?.contentType, "image/svg+xml");
+    // The old Homepage folder name is not read (Samba vetoes "icon?").
+    await mkdir(join(configDir, "icons"));
+    await writeFile(join(configDir, "icons", "old.png"), PNG);
+    assert.deepEqual(svc.resolve("/icons/old.png", "Old"), { kind: "letter", letter: "O" });
+    assert.equal(await svc.get("local", "old.png", q()), null);
     // sh- names never use the local folder.
     assert.deepEqual(svc.resolve("sh-plex.png", "Plex"), { kind: "proxied", src: "icons/sh/plex.png" });
+  });
+
+  test("a leftover icons folder without custom-icons gets a rename hint", async () => {
+    await rm(join(configDir, "custom-icons"), { recursive: true });
+    await mkdir(join(configDir, "icons"));
+    const cap = capture();
+    service(fakeCdn(), cap.log);
+    assert.ok(cap.lines.some((l) => l.includes("custom-icons folder, not icons")));
+    await mkdir(join(configDir, "custom-icons"));
+    const quiet = capture();
+    service(fakeCdn(), quiet.log);
+    assert.ok(!quiet.lines.some((l) => l.includes("rename the folder")));
   });
 
   test("local icons: symlink escape, unsafe SVG, mislabelled and oversize files are refused", async () => {
     const outside = join(root, "secret.png");
     await writeFile(outside, PNG);
-    await symlink(outside, join(configDir, "icons", "escape.png"));
-    await writeFile(join(configDir, "icons", "evil.svg"), "<svg><script>alert(1)</script></svg>");
+    await symlink(outside, join(configDir, "custom-icons", "escape.png"));
+    await writeFile(join(configDir, "custom-icons", "evil.svg"), "<svg><script>alert(1)</script></svg>");
     await writeFile(
-      join(configDir, "icons", "evil-ns.svg"),
+      join(configDir, "custom-icons", "evil-ns.svg"),
       '<svg xmlns="http://www.w3.org/2000/svg" xmlns:s="http://www.w3.org/2000/svg"><s:script>alert(1)</s:script></svg>',
     );
-    await writeFile(join(configDir, "icons", "fake.png"), "<html><script>x</script></html>");
-    await writeFile(join(configDir, "icons", "huge.png"), Buffer.concat([PNG, Buffer.alloc(MAX_ICON_BYTES)]));
-    await mkdir(join(configDir, "icons", "dir.png"));
+    await writeFile(join(configDir, "custom-icons", "fake.png"), "<html><script>x</script></html>");
+    await writeFile(join(configDir, "custom-icons", "huge.png"), Buffer.concat([PNG, Buffer.alloc(MAX_ICON_BYTES)]));
+    await mkdir(join(configDir, "custom-icons", "dir.png"));
     const cap = capture();
     const svc = service(fakeCdn(), cap.log);
     for (const f of ["escape.png", "evil.svg", "evil-ns.svg", "fake.png", "huge.png", "dir.png", "absent.png"]) {
       assert.equal(await svc.get("local", f, q()), null, f);
     }
-    assert.ok(cap.lines.some((l) => l.includes("outside the icons folder")));
+    assert.ok(cap.lines.some((l) => l.includes("outside the custom-icons folder")));
     // A symlink inside the folder pointing to another file inside it is fine.
-    await writeFile(join(configDir, "icons", "real.png"), PNG);
-    await symlink(join(configDir, "icons", "real.png"), join(configDir, "icons", "alias.png"));
+    await writeFile(join(configDir, "custom-icons", "real.png"), PNG);
+    await symlink(join(configDir, "custom-icons", "real.png"), join(configDir, "custom-icons", "alias.png"));
     assert.ok(await svc.get("local", "alias.png", q()));
   });
 
@@ -489,7 +506,7 @@ describe("icons: service", () => {
 
 describe("icons: HTTP route", () => {
   test("headers: allowlisted type, ICON_CSP, nosniff; traversal 404s", async () => {
-    await writeFile(join(configDir, "icons", "nas.svg"), SVG);
+    await writeFile(join(configDir, "custom-icons", "nas.svg"), SVG);
     const ctx: BootContext = {
       options: { theme: "auto", log_level: "info" },
       paths: { configDir, dataDir, sampleDir: join(APP, "sample"), webDir: join(APP, "web") },

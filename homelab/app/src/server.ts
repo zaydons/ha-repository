@@ -4,6 +4,7 @@
 // Environment (not settable through Supervisor options):
 //   HL_ALLOW_ANY_SOURCE=1   disable the source-IP guard (local testing only)
 //   HL_CONFIG_DIR, HL_DATA_DIR, HL_PORT   override /config, /data, 8099 for local runs
+//   HL_OPTIONS_FILE         readable copy of /data/options.json (set by entrypoint.sh)
 //   HL_STUB_SCENARIO        ok|banner|fatal|welcome|empty (WS0 stubs only)
 import { createServer } from "node:http";
 import type { Server } from "node:http";
@@ -11,12 +12,12 @@ import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import type { BootContext, ConfigService, IconService, StateService } from "./types.ts";
 import { createLogger, setLogLevel } from "./log.ts";
-import { readOptions, resolveConfigPathDisplay } from "./options.ts";
+import { optionsFilePath, readOptions, resolveConfigPathDisplay } from "./options.ts";
 import { attachGuard, isAllowedSource } from "./http/guard.ts";
 import { createRouter } from "./http/router.ts";
 import { createStaticFiles } from "./http/static.ts";
 import { createStubConfigService, createStubStateService, parseScenario } from "./http/stubs.ts";
-import { createIconService } from "./icons/index.ts";
+import { createIconService } from "./iconsvc/index.ts";
 import { createConfigService } from "./config/index.ts";
 import { plugins } from "./widgets/index.ts";
 import { createWidgetHttpClient, loadCaPem } from "./widgets/lib/http-client.ts";
@@ -70,7 +71,7 @@ async function main(): Promise<void> {
   const env = process.env;
   const log = createLogger();
   const dataDir = env.HL_DATA_DIR || "/data";
-  const options = await readOptions(join(dataDir, "options.json"), log);
+  const options = await readOptions(optionsFilePath(env, dataDir), log);
   setLogLevel(options.log_level);
 
   const ctx: BootContext = {

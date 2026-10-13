@@ -8,7 +8,7 @@
 // are fetched by the server from two fixed CDN templates, once, and cached in
 // /data/icon-cache/<set>/. Only names that the config referenced (via
 // resolve) are ever fetched, so the browser cannot make the server fetch
-// arbitrary names. /config/icons/ wins over the CDN.
+// arbitrary names. /config/custom-icons/ wins over the CDN.
 import { existsSync, statSync } from "node:fs";
 import { lstat, mkdir, readdir, readFile, realpath, rename, rm, stat, unlink, utimes, writeFile } from "node:fs/promises";
 import { join, sep } from "node:path";
@@ -20,6 +20,7 @@ import {
   cdnUrl,
   COLOUR_RE,
   contentTypeFor,
+  LOCAL_DIR,
   LOCAL_FILE_RE,
   PACK_NAME_RE,
   letterFor,
@@ -64,8 +65,11 @@ export function createIconService(ctx: BootContext, opts: IconServiceOptions = {
     mdi: join(nodeModules, "@mdi", "svg", "svg"),
     si: join(nodeModules, "simple-icons", "icons"),
   };
-  const localDir = join(ctx.paths.configDir, "icons");
+  const localDir = join(ctx.paths.configDir, LOCAL_DIR);
   const cacheRoot = join(ctx.paths.dataDir, "icon-cache");
+  if (existsSync(join(ctx.paths.configDir, "icons")) && !existsSync(localDir)) {
+    log.warn(`Local icons are read from the ${LOCAL_DIR} folder, not icons; rename the folder to use them`);
+  }
 
   const negative = new Map<string, number>(); // key -> expiry (ms)
   const inflight = new Map<string, Promise<IconResponse | null>>();
@@ -109,7 +113,7 @@ export function createIconService(ctx: BootContext, opts: IconServiceOptions = {
     }
   }
 
-  /** Read /config/icons/<file>, refusing anything that resolves outside that folder. */
+  /** Read /config/custom-icons/<file>, refusing anything that resolves outside that folder. */
   async function readLocal(file: string): Promise<IconResponse | null> {
     if (!LOCAL_FILE_RE.test(file)) return null;
     const contentType = contentTypeFor(file);
@@ -118,7 +122,7 @@ export function createIconService(ctx: BootContext, opts: IconServiceOptions = {
       const dir = await realpath(localDir);
       const real = await realpath(join(localDir, file));
       if (!real.startsWith(dir + sep)) {
-        log.warn(`Ignoring local icon ${file}: it points outside the icons folder`);
+        log.warn(`Ignoring local icon ${file}: it points outside the ${LOCAL_DIR} folder`);
         return null;
       }
       const st = await stat(real);
