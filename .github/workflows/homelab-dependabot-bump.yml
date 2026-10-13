@@ -1,0 +1,133 @@
+# Gives every Dependabot PR that changes homelab/ a patch version bump and a
+# CHANGELOG entry, committed to the PR branch. Merging the PR then makes Home
+# Assistant show "Update available" (it only offers updates when the version
+# in homelab/config.yaml changes).
+#
+# Security model (pull_request_target runs with a write token, so it must
+# never run code from the PR):
+# - The workflow file and the bump script come from main (pull_request_target
+#   always uses the base branch's workflow; the script is checked out from main).
+# - Only for PRs opened by Dependabot, from a dependabot/ branch in this
+#   repository (not a fork), on events Dependabot itself triggered.
+# - The PR branch is checked out sparsely as data: only homelab/config.yaml and
+#   homelab/CHANGELOG.md. Nothing from it is installed, built or executed.
+# - PR-controlled text (title, branch name) only reaches the shell through
+#   environment variables, never through ${{ }} inside a script.
+#
+# Loop and double-bump guards: a PR that already changes homelab/config.yaml
+# or homelab/CHANGELOG.md is skipped; the bump commit is pushed by
+# github-actions[bot], which the actor check skips; runs per PR are serialized.
+# If Dependabot recreates the PR (for example after "@dependabot recreate"),
+# its branch no longer has the bump commit, so it gets bumped again from the
+# current main.
+name: Homelab version bump (Dependabot)
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+    paths:
+      - "homelab/**"
+
+permissions: {}
+
+concurrency:
+  group: homelab-bump-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    name: Bump homelab version
+    if: >-
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      github.actor == 'dependabot[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      startsWith(github.event.pull_request.head.ref, 'dependabot/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write # push the bump commit to the Dependabot branch
+      pull-requests: read # list the PR's files and commits
+    steps:
+      - name: Check whether the PR already has a version bump
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          files="$(gh api --paginate "repos/$REPO/pulls/$PR/files" --jq '.[].filename')"
+          if grep -qxE 'homelab/(config\.yaml|CHANGELOG\.md)' <<<"$files"; then
+            echo "The PR already changes the version or changelog; nothing to do."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out the bump script (main)
+        if: steps.check.outputs.skip == 'false'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: base
+          persist-credentials: false
+          sparse-checkout: .github/scripts/homelab_version.py
+          sparse-checkout-cone-mode: false
+
+      - name: Check out the two files to edit (PR branch, data only)
+        if: steps.check.outputs.skip == 'false'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The exact commit the event is about. If Dependabot pushes again
+          # meanwhile, the push below is rejected (not a fast-forward) and the
+          # newer event's run does the bump instead.
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          # Needed for the push. Only git runs in this checkout.
+          persist-credentials: true
+          sparse-checkout: |
+            homelab/config.yaml
+            homelab/CHANGELOG.md
+          sparse-checkout-cone-mode: false
+
+      - name: Bump the patch version, add the changelog entry, push
+        if: steps.check.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          if [[ ! "$HEAD_REF" =~ ^dependabot/[A-Za-z0-9._/@+-]+$ ]]; then
+            echo "::error::Unexpected branch name"; exit 1
+          fi
+
+          # "deps(homelab): bump yaml from 2.9.1 to 2.10.0 in /homelab/app"
+          #   -> "bump yaml from 2.9.1 to 2.10.0"
+          summary="$(sed -E 's/^[A-Za-z]+(\([^)]*\))?!?: *//; s/ in \/homelab(\/app)?( |$)/\2/' <<<"$PR_TITLE")"
+          # Grouped PR titles don't name the packages; Dependabot's commit
+          # metadata does ("- dependency-name: x" / "dependency-version: y").
+          deps="$(gh api --paginate "repos/$REPO/pulls/$PR/commits" --jq '.[].commit.message' \
+            | awk '/^- dependency-name: /{n=$3} /^ +dependency-version: /{if (n) print n " " $2; n=""}' \
+            | sort -u | paste -sd ',' - | sed 's/,/, /g')"
+          note="Dependency updates: ${summary}"
+          if [[ -n "$deps" && "$summary" == *" group "* ]]; then
+            note="${note} (${deps})"
+          fi
+
+          new="$(python3 -I base/.github/scripts/homelab_version.py bump pr patch "$note")"
+
+          cd pr
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add homelab/config.yaml homelab/CHANGELOG.md
+          git commit -q -m "chore(homelab): release ${new}" \
+            -m "Automatic version bump for dependency PR #${PR}, so Home Assistant offers the update."
+          git push origin "HEAD:refs/heads/${HEAD_REF}"
+          {
+            echo "### Homelab version bumped to ${new}"
+            echo
+            echo "Changelog: ${note}"
+            echo
+            echo "CI for the new commit waits for approval on the PR page (GitHub requires it for commits pushed by workflows)."
+          } >> "$GITHUB_STEP_SUMMARY"

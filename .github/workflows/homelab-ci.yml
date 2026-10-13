@@ -1,0 +1,152 @@
+# CI for the Homelab Dashboard app (homelab/).
+# Every third-party action is pinned to a full commit SHA (Dependabot keeps
+# them current). No job has write access, and no secrets are used.
+name: Homelab CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "homelab/**"
+      - ".github/workflows/homelab-*.yml"
+      - ".github/scripts/homelab_version.py"
+      - ".github/dependabot.yml"
+  push:
+    branches: [main]
+    paths:
+      - "homelab/**"
+      - ".github/workflows/homelab-*.yml"
+      - ".github/scripts/homelab_version.py"
+      - ".github/dependabot.yml"
+  # Run by hand from the Actions tab, for any branch.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: homelab-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    name: Test, type check, npm audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: homelab/app
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          # Same major as the Dockerfile base image (node:24-alpine).
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: homelab/app/package-lock.json
+
+      # --ignore-scripts as in the Dockerfile: no dependency runs install hooks.
+      - name: Install (npm ci)
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Unit tests (node --test)
+        run: node --test
+
+      - name: Type check (tsc --noEmit)
+        run: npx --no-install tsc --noEmit -p tsconfig.json
+
+      - name: npm audit (runtime dependencies, high and above)
+        run: npm audit --omit=dev --audit-level=high
+
+  lint-app-config:
+    name: Home Assistant app config lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Formerly frenck/action-addon-linter (renamed with the Apps terminology).
+      - uses: frenck/action-app-linter@b9cfd1bc62ba60d2c4fc96317b5f7ada5923f4a7 # v2.21.1
+        with:
+          path: ./homelab
+
+  docker-build:
+    name: Docker build (${{ matrix.arch }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+          - arch: aarch64
+            platform: linux/arm64
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up QEMU (arm64 emulation)
+        if: matrix.arch == 'aarch64'
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+        with:
+          image: tonistiigi/binfmt:qemu-v10.2.3@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0
+          platforms: arm64
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # Builds the image the way the Supervisor does (build args included).
+      # Nothing is pushed or loaded; this only proves the image builds.
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: ./homelab
+          platforms: ${{ matrix.platform }}
+          push: false
+          provenance: false
+          build-args: |
+            BUILD_VERSION=ci
+            BUILD_ARCH=${{ matrix.arch }}
+
+  secret-scan:
+    name: Secret scan (gitleaks)
+    # Scans the commits of the pull request or push, not the whole history.
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read # list the PR's commits
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Report in the job summary only; commenting would need write access.
+          GITLEAKS_ENABLE_COMMENTS: "false"
+
+  workflow-lint:
+    name: Workflow lint (actionlint)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: actionlint
+        run: >-
+          docker run --rm --network none -v "$PWD:/repo:ro" -w /repo
+          rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
+          -color .github/workflows/homelab-ci.yml
+          .github/workflows/homelab-dependabot-bump.yml
+          .github/workflows/homelab-release.yml

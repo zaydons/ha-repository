@@ -1,0 +1,76 @@
+# Dependency updates for the Homelab Dashboard app (homelab/) and the CI.
+# Weekly, all on Monday morning, so a week's updates arrive together.
+# Dependabot PRs that change homelab/ get a patch version bump and a
+# CHANGELOG entry automatically (.github/workflows/homelab-dependabot-bump.yml);
+# merging one makes Home Assistant offer "Update available".
+# Security updates (Settings > Code security) open as soon as an advisory
+# appears and skip the cooldown below.
+version: 2
+
+updates:
+  # npm packages of the app (homelab/app/package.json + package-lock.json).
+  - package-ecosystem: npm
+    directory: /homelab/app
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+    # Wait before proposing a new release, so a compromised or broken
+    # version is usually caught and pulled before it reaches the app.
+    cooldown:
+      default-days: 3
+      semver-major-days: 14
+    groups:
+      # One PR a week for everything non-breaking.
+      npm-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+      # Security fixes together too, separate from routine updates.
+      npm-security:
+        applies-to: security-updates
+        patterns: ["*"]
+    # Major versions stay ungrouped: one PR per package, reviewed on its own.
+    open-pull-requests-limit: 5
+    labels: [dependencies, homelab, npm]
+    commit-message:
+      prefix: "deps(homelab)"
+
+  # Node.js base image in homelab/Dockerfile. Dependabot updates the tag and
+  # the digest together, so the tag@sha256 pinning is kept.
+  - package-ecosystem: docker
+    directory: /homelab
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+    cooldown:
+      default-days: 3
+    ignore:
+      # Node 25 is the last non-LTS line; never move the app to it.
+      # From Node 26 on every major becomes LTS, but only in the October after
+      # its April release. Majors still come as their own PR (Docker majors
+      # aren't grouped); merge one only once that line is "Active LTS" on
+      # https://nodejs.org/en/about/previous-releases (Node 26: late Oct 2026).
+      - dependency-name: node
+        versions: [">= 25, < 26"]
+    open-pull-requests-limit: 2
+    labels: [dependencies, homelab, docker]
+    commit-message:
+      prefix: "deps(homelab)"
+
+  # GitHub Actions used by the workflows (pinned by commit SHA).
+  # These PRs don't touch homelab/, so they don't bump the app version.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+    groups:
+      actions:
+        patterns: ["*"]
+    open-pull-requests-limit: 3
+    labels: [dependencies, github-actions]
+    commit-message:
+      prefix: "ci"
