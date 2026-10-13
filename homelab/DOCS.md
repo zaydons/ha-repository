@@ -168,7 +168,7 @@ The layout is the same as Homepage's: a list of groups, each with a list of serv
 | `description` | One line of text under the name. |
 | `icon` | See [Icons](#icons). |
 | `siteMonitor` | A URL to check. The app sends a `HEAD` request (or `GET` if needed) every 30 seconds. The service is **Up** for any HTTP status up to 403, so a login page (401 or 403) counts as up; redirects are not followed and also count as up. Higher codes, timeouts (5 s), refused connections and DNS failures are **Down**. |
-| `ping` | A host name or IP address to ping every 30 seconds. If you set both `siteMonitor` and `ping`, `siteMonitor` decides the status and the ping result appears in the tooltip. |
+| `ping` | A host name or IP address to ping every 30 seconds. If you set both `siteMonitor` and `ping`, only `siteMonitor` runs; `ping` is ignored and listed as info under **Show all problems**. |
 | `widget` | Live stats from the app. See [Supported widgets](#supported-widgets). |
 | `widgets` | A list of widgets. Only the first supported one is shown; the others are listed as info. |
 
