@@ -7,13 +7,12 @@ arch:
   - amd64
   - aarch64
 stage: experimental
-init: true
 ingress: true
-ingress_port: 8099
 panel_icon: "mdi:view-dashboard-variant"
 panel_title: "Homelab"
-panel_admin: true
-watchdog: "http://[HOST]:[PORT:8099]/api/health"
+# Supervisor defaults, left out because the app linter rejects defaults:
+# init true, ingress_port 8099, panel_admin true (panel for admins only).
+# Health: the Dockerfile HEALTHCHECK (the watchdog option is obsolete).
 map:
   # Needed to seed the sample files; the app never edits user files after that.
   - type: app_config

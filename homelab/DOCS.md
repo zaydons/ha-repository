@@ -24,6 +24,7 @@ What makes it different from the Homepage app in this repository:
 - [Icons](#icons)
 - [Access and remote use](#access-and-remote-use)
 - [App options](#app-options)
+- [Updating](#updating)
 - [Fixing config errors](#fixing-config-errors)
 - [Troubleshooting](#troubleshooting)
 - [Limitations](#limitations)
@@ -420,6 +421,14 @@ Set this on the app's **Configuration** tab in Home Assistant. Everything else l
 Restart the app after changing an option. Options are read once at start, and saving them doesn't restart the app.
 
 There's no theme option. The dashboard always follows your Home Assistant theme, including custom themes and live changes. If you open it outside Home Assistant, it follows your device's light or dark setting.
+
+## Updating
+
+New versions show up in Home Assistant as **Update available**: under **Settings**, and on the app's **Info** tab. Most are dependency and security updates; the release notes in the update dialog say what changed (the same text as the [changelog](CHANGELOG.md)). Home Assistant doesn't install them on its own unless you turn on **Auto update** on the app's **Info** tab.
+
+- **Back up first.** When you select **Update**, Home Assistant offers to create a backup of the app before updating. Leave that on. If the new version gives you trouble, restore that backup in **Settings > System > Backups** to go back to the version you had.
+- **It takes a few minutes.** Home Assistant rebuilds the app on your machine, just like the first install, so it needs to reach Docker Hub and registry.npmjs.org again.
+- **Your dashboard is kept.** Your config folder (`services.yaml`, `settings.yaml`, `secrets.yaml`, `custom-icons/`) and the app options stay as they are.
 
 ## Fixing config errors
 

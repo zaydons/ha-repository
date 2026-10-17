@@ -1,0 +1,77 @@
+# Manual release of the Homelab Dashboard app for changes that aren't
+# Dependabot updates. Actions > "Release homelab" > Run workflow: pick patch or
+# minor and write one changelog line. It opens a PR that bumps the version in
+# homelab/config.yaml and adds the CHANGELOG entry; merging that PR makes Home
+# Assistant show "Update available".
+name: Release homelab
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Version bump"
+        type: choice
+        options: [patch, minor]
+        default: patch
+      note:
+        description: "Changelog line (what changed, for users)"
+        type: string
+        required: true
+
+permissions: {}
+
+concurrency:
+  group: homelab-release
+  cancel-in-progress: false
+
+jobs:
+  release-pr:
+    name: Open the release PR
+    # Only from main, so the version is bumped from what users get today.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write # push the release branch
+      pull-requests: write # open the PR
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: true # needed for the push; only git and the script run here
+          sparse-checkout: |
+            .github/scripts/homelab_version.py
+            homelab/config.yaml
+            homelab/CHANGELOG.md
+          sparse-checkout-cone-mode: false
+
+      - name: Bump version, add changelog entry, open PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUMP: ${{ inputs.bump }}
+          NOTE: ${{ inputs.note }}
+        run: |
+          new="$(python3 -I .github/scripts/homelab_version.py bump . "$BUMP" "$NOTE")"
+          branch="release/homelab-${new}"
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
+            echo "::error::Branch $branch already exists. Merge or close that release first."
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -q -c "$branch"
+          git add homelab/config.yaml homelab/CHANGELOG.md
+          git commit -q -m "chore(homelab): release ${new}"
+          git push -q origin "$branch"
+
+          gh pr create --base main --head "$branch" \
+            --title "Release homelab ${new}" \
+            --body "$(printf '%s\n' \
+              "Bumps the Homelab Dashboard app to **${new}** and adds this CHANGELOG entry:" \
+              "" \
+              "> $(sed -n '5p' homelab/CHANGELOG.md | sed 's/^- //')" \
+              "" \
+              "Merging it makes Home Assistant show \"Update available\" for the app." \
+              "" \
+              "CI on this PR waits for approval (GitHub requires it for PRs opened by workflows): use **Approve and run** on the PR page.")"
+          echo "Opened the release PR for ${new}." >> "$GITHUB_STEP_SUMMARY"
